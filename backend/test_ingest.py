@@ -1,6 +1,6 @@
-from ingestion.chunker import chunk_text
-from models.store_memory import store_chunks
-from models.memory_schema import MemoryChunk
+from backend.ingestion.chunker import chunk_text
+from backend.models.store_memory import store_chunks
+from backend.models.memory_schema import MemoryChunk
 
 text = """
 Customer onboarding delays are increasing.

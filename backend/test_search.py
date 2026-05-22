@@ -1,4 +1,4 @@
-from retrieval.search import search
+from backend.retrieval.search import search
 
 results = search(
     "Why are onboarding problems increasing?"

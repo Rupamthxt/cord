@@ -1,5 +1,5 @@
-from models.setup_client import client
-from embeddings.model import get_embedding
+from backend.models.setup_client import client
+from backend.embeddings.model import get_embedding
 
 COLLECTION_NAME = "workspace_memory"
 
