@@ -1,5 +1,6 @@
 from ingestion.chunker import chunk_text
 from models.store_memory import store_chunks
+from models.memory_schema import MemoryChunk
 
 text = """
 Customer onboarding delays are increasing.
@@ -15,7 +16,13 @@ chunks = chunk_text(text)
 
 store_chunks(
     chunks,
-    metadata={
-        "source": "test"
-    }
+    metadata=MemoryChunk(
+        source="customer_support",
+        source_id="ticket_12345",
+        author="John Doe",
+        team="Support",
+        timestamp="2024-06-01T12:00:00Z",
+        document_title="Customer Support Ticket #12345",
+        tags=["onboarding", "deployment", "support"]
+    )
 )

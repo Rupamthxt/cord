@@ -6,4 +6,6 @@ results = search(
 
 for result in results:
     print("\n")
-    print(result[1][0].payload["text"])
+    p = result[1][0].payload
+    print(p["text"])
+    print("\nSource: ",p['metadata']['source'])
