@@ -34,14 +34,21 @@ graph TD
     subgraph Background Processing [Background Worker Thread]
         CorrEngine[Correlation Engine]
         EvExtractor[Event Extractor]
+        PatDetector[Pattern Detector]
     end
 
-    %% Retrieval Pipeline
-    subgraph Reasoning Retrieval Pipeline
+    %% Retrieval & Reasoning Pipeline
+    subgraph Reasoning & Intelligence Pipelines
         QTemporal[Query Temporal Parser]
         QEntities[Query Entity Parser]
         Ranker[Multi-Dimensional Ranker]
         Pipeline[Reasoning Pipeline Executor]
+        
+        QClassifier[Query Classifier]
+        EvAggregator[Evidence Aggregator]
+        RCAnalyzer[Root Cause Analyzer]
+        InsightSynth[Insight Synthesizer]
+        IntelPipeline[Intel Pipeline Orchestrator]
     end
 
     %% APIs
@@ -50,6 +57,13 @@ graph TD
         API_Events[POST /events/search]
         API_Timeline[POST /timeline/search]
         API_Corr[POST /correlations/search]
+        API_Patterns[POST /patterns/search]
+        
+        API_Intel_Issues[POST /insights/issues]
+        API_Intel_Trends[POST /insights/trends]
+        API_Intel_Root[POST /insights/root-causes]
+        API_Intel_Esc[POST /insights/escalations]
+        API_Intel_Bot[POST /insights/bottlenecks]
     end
 
     %% Ingestion Flow
@@ -66,6 +80,7 @@ graph TD
     CorrEngine --> SQLite
     EvExtractor --> SQLite
     EvExtractor --> Qdrant
+    PatDetector --> SQLite
 
     %% Search Flow
     API_Search --> Pipeline
@@ -76,7 +91,20 @@ graph TD
     API_Timeline --> SQLite
     API_Corr --> Pipeline
     API_Corr --> SQLite
+    API_Patterns --> SQLite
 
+    %% Intel Flow
+    API_Intel_Issues --> IntelPipeline
+    API_Intel_Trends --> IntelPipeline
+    API_Intel_Root --> IntelPipeline
+    API_Intel_Esc --> IntelPipeline
+    API_Intel_Bot --> IntelPipeline
+    
+    IntelPipeline --> QClassifier
+    IntelPipeline --> EvAggregator
+    IntelPipeline --> RCAnalyzer
+    IntelPipeline --> InsightSynth
+    
     Pipeline --> QTemporal
     Pipeline --> QEntities
     Pipeline --> Qdrant
@@ -108,10 +136,16 @@ Scores retrieved chunks by combining semantic vector cosine similarity with meta
 - Matches documents across platforms using **temporal proximity** (< 1 hour, < 24 hours), **shared entity overlaps**, and **semantic similarity**.
 - Resolves context-boosted signals (e.g., matching a production hotfix deployment document with a live Slack latency discussion).
 
-### 5. Graph Foundations & Relational Memory (SQLite)
-- **`entity_cooccurrences`**: Lexicographically ordered entity pairs mapped with occurrence frequency and last seen timestamps.
-- **`correlations`**: Tracks calculated similarities between chunks for diagnostic reference.
-- **`events`**: Extracted operational events connected to their source chunks.
+### 5. Operational Pattern Detection Foundations
+- **Recurring Incident Detector**: Detects when incidents or escalations sharing entities occur repeatedly (>= 2 times) within the last 7 days.
+- **Escalation Chain Detector**: Scans for sequences of events where an incident, escalation, or general outage discussion occurs within 60 minutes of a deployment event.
+- **Frequency Spike Detector**: Compares event volumes over the last 24 hours against the daily baseline of the preceding 7 days, flagging spikes.
+
+### 6. Operational Intelligence Workflows (Decision Reasoning)
+- **Query Classification Layer**: Tokenizes and profiles user query categories (e.g. root causes, trend analysis, bottlenecks).
+- **Evidence Aggregator**: Gathers relevant semantic chunks, deduplicates content, scores evidence, and groups items chronologically.
+- **Root Cause Analyzer**: Identifies chronological sequences and escalation pathways using database correlations.
+- **Insight Synthesizer**: Compiles findings, maps chronological progression paths, and outputs combined confidence indicator scores.
 
 ---
 
@@ -121,10 +155,10 @@ Scores retrieved chunks by combining semantic vector cosine similarity with meta
 backend/
 ├── api/
 │   ├── __init__.py
-│   └── app.py                      # FastAPI routes & middlewares
+│   └── app.py                      # FastAPI routes, schemas & endpoints
 ├── connectors/
-│   ├── notion/                     # Notion API ingestion connector
-│   └── slack/                      # Slack workspace crawler
+│   ├── notion/                     # Notion API crawl connector
+│   └── slack/                      # Slack crawl connector
 ├── embeddings/
 │   ├── __init__.py
 │   └── model.py                    # Embedding model wrapper (BGE-Micro-v2)
@@ -132,6 +166,11 @@ backend/
 │   ├── chunker.py                  # Chunking algorithms
 │   ├── entity_extractor.py         # Pattern-matching entity parsing
 │   └── event_extractor.py          # Operational event classifier
+├── intelligence/
+│   ├── __init__.py
+│   ├── evidence_aggregator.py      # Evidence gathering and scoring engine [NEW]
+│   ├── insight_synthesizer.py      # Structured insights compiler [NEW]
+│   └── pipeline.py                 # Intel pipeline orchestrator [NEW]
 ├── main.py                         # FastAPI Uvicorn entrypoint
 ├── memory/
 │   └── memory_store.db             # Local SQLite database [Gitignored]
@@ -139,15 +178,22 @@ backend/
 │   ├── memory_schema.py            # Pydantic schemas for data structures
 │   ├── setup_client.py             # Qdrant client connection initializer
 │   └── store_memory.py             # standardized metadata & ingestion trigger
+├── reasoning/
+│   ├── __init__.py
+│   ├── query_classifier.py         # Operational query profiler [NEW]
+│   └── root_cause_analyzer.py      # Correlation-based chain mapper [NEW]
 ├── retrieval/
 │   ├── ranker.py                   # Multi-dimensional ranking boosts
 │   ├── reasoning_pipeline.py       # Temporal query parser & search engine
 │   └── search.py                   # Standard search route delegator
 ├── services/
 │   ├── correlation_engine.py       # Cross-source correlation logic
-│   └── db_manager.py               # SQLite schema & database transactions
+│   ├── db_manager.py               # SQLite schema & database transactions
+│   └── pattern_detector.py         # Incremental operational pattern detector
 ├── tests/
 │   ├── test_extended_search.py     # Base multi-dimensional boost tests
+│   ├── test_operational_intelligence.py # Intel pipeline verification tests [NEW]
+│   ├── test_pattern_detection.py   # Pattern detection verification tests
 │   ├── test_reasoning_pipeline.py  # Advanced reasoning, timeline & event tests
 │   └── test_slack_ingest.py        # Slack mock ingestion tests
 └── requirements.txt                # Project dependencies
@@ -178,45 +224,48 @@ The server will start at `http://0.0.0.0:8000`.
 
 ### 1. Standard Search
 `POST /search`
-Advanced semantic search with metadata-aware filtering, source attribution, and multi-dimensional ranking boosts.
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"query": "Postgres latency", "limit": 5}' \
   http://localhost:8000/search
 ```
 
-### 2. Events Search
-`POST /events/search`
-Query abstracted operational events semantically or via time range / type filters.
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"query": "database rollback", "event_type": "deployment", "limit": 5}' \
-  http://localhost:8000/events/search
-```
-
-### 3. Chronological Timeline Search
+### 2. Chronological Timeline Search
 `POST /timeline/search`
-Groups matched chunks and events day-by-day.
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"query": "Postgres latency last 24 hours", "limit": 5}' \
   http://localhost:8000/timeline/search
 ```
 
-### 4. Correlation Search
-`POST /correlations/search`
-Finds chunks matching a query and lists details of their cross-source/intra-source correlations.
+### 3. Patterns Search
+`POST /patterns/search`
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"query": "Postgres latency", "limit": 5}' \
-  http://localhost:8000/correlations/search
+  -d '{"query": "ServiceA", "limit": 5}' \
+  http://localhost:8000/patterns/search
+```
+
+### 4. Operational Insights
+Retrieve structured query analytics, chronological triggers, and confidence diagnostics.
+
+- **Issues Insight**: `POST /insights/issues`
+- **Trends Insight**: `POST /insights/trends`
+- **Root Cause Insight**: `POST /insights/root-causes`
+- **Escalations Insight**: `POST /insights/escalations`
+- **Bottlenecks Insight**: `POST /insights/bottlenecks`
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"query": "Why did ServiceA fail after release v2.3?", "limit": 5}' \
+  http://localhost:8000/insights/root-causes
 ```
 
 ---
 
 ## 🧪 Verification & Testing
 
-Verify that all systems (ingestion, vector indexes, relation SQLite mappings, and query reasoners) are functioning correctly:
+Verify that all systems (ingestion, vector indexes, relation SQLite mappings, query reasoners, and intelligence synthesis pipelines) are functioning correctly:
 
 ```bash
 # Run Multi-Dimensional Search Tests
@@ -225,6 +274,12 @@ python -m backend.tests.test_extended_search
 # Run Mock Slack Ingestion Tests
 python -m backend.tests.test_slack_ingest
 
-# Run Reasoning & Operational Intelligence Tests (Co-occurrences, Timelines, Correlations)
+# Run Reasoning & Operational Memory Tests
 python -m backend.tests.test_reasoning_pipeline
+
+# Run Pattern Detection Tests
+python -m backend.tests.test_pattern_detection
+
+# Run Operational Intelligence Pipeline Tests
+python -m backend.tests.test_operational_intelligence
 ```

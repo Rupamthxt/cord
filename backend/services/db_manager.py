@@ -96,6 +96,21 @@ class DBManager:
                     UNIQUE(source_a, source_b, correlation_type)
                 )
             """)
+
+            # 6. Operational Patterns
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS patterns (
+                    pattern_id TEXT PRIMARY KEY,
+                    pattern_type TEXT,
+                    name TEXT,
+                    description TEXT,
+                    severity TEXT,
+                    confidence REAL,
+                    last_detected TEXT,
+                    entities TEXT,
+                    related_events TEXT
+                )
+            """)
         logger.info(f"SQLite Relational Memory database initialized at: {DB_PATH}")
 
     def add_event(
@@ -254,3 +269,84 @@ class DBManager:
                 if ev:
                     events.append(ev)
             return events
+
+    def add_pattern(
+        self,
+        pattern_id: str,
+        pattern_type: str,
+        name: str,
+        description: str,
+        severity: str,
+        confidence: float,
+        last_detected: str,
+        entities: List[str],
+        related_events: List[str]
+    ):
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO patterns (
+                    pattern_id, pattern_type, name, description, severity, confidence, last_detected, entities, related_events
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    pattern_id,
+                    pattern_type,
+                    name,
+                    description,
+                    severity,
+                    confidence,
+                    last_detected,
+                    ",".join(entities),
+                    ",".join(related_events)
+                )
+            )
+
+    def get_pattern(self, pattern_id: str) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            row = conn.execute("SELECT * FROM patterns WHERE pattern_id = ?", (pattern_id,)).fetchone()
+            if not row:
+                return None
+            return {
+                "pattern_id": row["pattern_id"],
+                "pattern_type": row["pattern_type"],
+                "name": row["name"],
+                "description": row["description"],
+                "severity": row["severity"],
+                "confidence": row["confidence"],
+                "last_detected": row["last_detected"],
+                "entities": row["entities"].split(",") if row["entities"] else [],
+                "related_events": row["related_events"].split(",") if row["related_events"] else []
+            }
+
+    def get_patterns(
+        self,
+        pattern_type: Optional[str] = None,
+        min_confidence: float = 0.0,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            query = "SELECT * FROM patterns WHERE confidence >= ?"
+            params = [min_confidence]
+            if pattern_type:
+                query += " AND pattern_type = ?"
+                params.append(pattern_type)
+            query += " ORDER BY last_detected DESC LIMIT ?"
+            params.append(limit)
+            
+            rows = conn.execute(query, params).fetchall()
+            return [
+                {
+                    "pattern_id": r["pattern_id"],
+                    "pattern_type": r["pattern_type"],
+                    "name": r["name"],
+                    "description": r["description"],
+                    "severity": r["severity"],
+                    "confidence": r["confidence"],
+                    "last_detected": r["last_detected"],
+                    "entities": r["entities"].split(",") if r["entities"] else [],
+                    "related_events": r["related_events"].split(",") if r["related_events"] else []
+                }
+                for r in rows
+            ]
+

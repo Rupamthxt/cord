@@ -31,7 +31,14 @@ def run_incremental_intelligence(points_data: List[Tuple[str, str, List[float], 
             # 1. Update correlations and co-occurrence scores
             correlation_engine.process_new_chunk(chunk_id, text, embedding, payload)
             # 2. Extract operational events
-            event_extractor.detect_and_extract_event(text, chunk_id, payload)
+            event = event_extractor.detect_and_extract_event(text, chunk_id, payload)
+            if event:
+                try:
+                    from backend.services.pattern_detector import PatternDetector
+                    pattern_detector = PatternDetector()
+                    pattern_detector.analyze_event(event["event_id"], event)
+                except Exception as pe:
+                    logger.error(f"Failed to analyze patterns for event {event.get('event_id')}: {pe}", exc_info=True)
         logger.info("Background incremental processing completed.")
     except Exception as e:
         logger.error(f"Error in background incremental processing: {e}", exc_info=True)

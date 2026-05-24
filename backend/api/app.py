@@ -139,6 +139,14 @@ class CorrelationsSearchRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=50)
 
 
+class PatternsSearchRequest(BaseModel):
+    query: Optional[str] = Field(default=None, description="Semantic or keyword filter over patterns.")
+    pattern_type: Optional[str] = Field(default=None, description="Filter by pattern type (recurring_incident, escalation_chain, frequency_spike).")
+    min_confidence: float = Field(default=0.0, description="Minimum pattern detection confidence.")
+    limit: int = Field(default=10, ge=1, le=100)
+
+
+
 # ----------------------------------------------------
 # Reasoning API Endpoints
 # ----------------------------------------------------
@@ -334,4 +342,135 @@ async def search_correlations(body: CorrelationsSearchRequest):
     except Exception as e:
         logger.error(f"Correlations search failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Correlations Search Error: {str(e)}")
+
+
+@app.post("/patterns/search", tags=["Reasoning"])
+async def search_patterns(body: PatternsSearchRequest):
+    """
+    Search for detected operational patterns and recurring issue trends.
+    """
+    try:
+        from backend.services.db_manager import DBManager
+        db = DBManager()
+        
+        # Retrieve patterns matching criteria from SQLite
+        patterns = db.get_patterns(
+            pattern_type=body.pattern_type,
+            min_confidence=body.min_confidence,
+            limit=body.limit
+        )
+        
+        # If a query is provided, perform a simple filter matching the query text in name/description/entities
+        if body.query:
+            query_lower = body.query.lower()
+            filtered_patterns = []
+            for pat in patterns:
+                in_name = query_lower in pat["name"].lower()
+                in_desc = query_lower in pat["description"].lower()
+                in_entities = any(query_lower in ent.lower() for ent in pat["entities"])
+                if in_name or in_desc or in_entities:
+                    filtered_patterns.append(pat)
+            patterns = filtered_patterns
+            
+        return {
+            "query": body.query,
+            "patterns": patterns,
+            "diagnostics": {
+                "total_patterns_found": len(patterns),
+                "filter_type": body.pattern_type,
+                "min_confidence": body.min_confidence
+            }
+        }
+    except Exception as e:
+        logger.error(f"Patterns search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Patterns Search Error: {str(e)}")
+
+
+# ----------------------------------------------------
+# Operational Intelligence Request Schemas
+# ----------------------------------------------------
+
+class InsightsQueryRequest(BaseModel):
+    query: str = Field(..., description="Query string for operational intelligence analysis.")
+    limit: int = Field(default=10, ge=1, le=100)
+
+
+# ----------------------------------------------------
+# Operational Intelligence Routes
+# ----------------------------------------------------
+
+@app.post("/insights/issues", tags=["Intelligence"])
+async def get_issues_insights(body: InsightsQueryRequest):
+    """
+    Surfaces recurring issues, outages, and system errors with supporting evidence.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit)
+        return res
+    except Exception as e:
+        logger.error(f"Issues insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Issues Insight Error: {str(e)}")
+
+
+@app.post("/insights/trends", tags=["Intelligence"])
+async def get_trends_insights(body: InsightsQueryRequest):
+    """
+    Surfaces worsening delays, performance progressions, and operational trends over time.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit)
+        return res
+    except Exception as e:
+        logger.error(f"Trends insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Trends Insight Error: {str(e)}")
+
+
+@app.post("/insights/root-causes", tags=["Intelligence"])
+async def get_root_causes_insights(body: InsightsQueryRequest):
+    """
+    Traces correlation chains and sequence paths to identify potential initial triggers.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit)
+        return res
+    except Exception as e:
+        logger.error(f"Root causes insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Root Causes Insight Error: {str(e)}")
+
+
+@app.post("/insights/escalations", tags=["Intelligence"])
+async def get_escalations_insights(body: InsightsQueryRequest):
+    """
+    Traces incident escalation timelines, alert states, and team handoffs.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit)
+        return res
+    except Exception as e:
+        logger.error(f"Escalations insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Escalations Insight Error: {str(e)}")
+
+
+@app.post("/insights/bottlenecks", tags=["Intelligence"])
+async def get_bottlenecks_insights(body: InsightsQueryRequest):
+    """
+    Identifies slower processes, deployment delays, and blocked resources.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit)
+        return res
+    except Exception as e:
+        logger.error(f"Bottlenecks insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Bottlenecks Insight Error: {str(e)}")
+
 

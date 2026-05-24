@@ -73,7 +73,7 @@ class EventExtractor:
                 return None
 
         # Derive a suitable Title
-        doc_title = metadata.get("title") or metadata.get("document_title") or "discussion"
+        doc_title = metadata.get("title") or metadata.get("document_title") or metadata.get("metadata", {}).get("title") or "discussion"
         if matched_type == "incident" and "incident" not in doc_title.lower() and "outage" not in doc_title.lower():
             title = f"Incident: {doc_title}"
         elif matched_type == "deployment" and "deploy" not in doc_title.lower() and "release" not in doc_title.lower():
