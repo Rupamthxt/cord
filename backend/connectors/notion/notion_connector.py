@@ -13,6 +13,8 @@ from backend.connectors.notion.notion_models.schemas import ExtractionStats
 from backend.models.memory_schema import MemoryDocument
 from backend.utils.pipeline import NormalizationPipeline
 from backend.connectors.notion.notion_utils.logging_config import get_logger
+from backend.ingestion.chunker import chunk_text
+from backend.models.store_memory import store_chunks
 
 logger = get_logger(__name__)
 
@@ -207,8 +209,9 @@ async def main():
     
     # Show sample documents
     if documents:
-        print(f"\nSample Documents:")
-        print(documents[0])
+        for document in documents:
+            chunks = chunk_text(document.content)
+            store_chunks(chunks, metadata=document)
 
 
 if __name__ == "__main__":

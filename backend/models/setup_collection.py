@@ -1,6 +1,6 @@
 from qdrant_client.models import Distance, VectorParams
 
-from setup_client import client
+from backend.models.setup_client import client
 
 COLLECTION_NAME = "workspace_memory"
 

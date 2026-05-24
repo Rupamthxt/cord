@@ -27,3 +27,17 @@ class MemoryDocument(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
+
+
+class MemoryChunk(BaseModel):
+    """
+    Representation of a single chunk of memory, used for metadata in test_ingest and base connector.
+    """
+    source: str
+    source_id: str
+    author: Optional[str] = None
+    team: Optional[str] = None
+    timestamp: Optional[str] = None
+    document_title: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
