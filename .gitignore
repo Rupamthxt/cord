@@ -1,2 +1,5 @@
 .antigravitycli
 .vscode
+__pycache__/
+*.pyc
+backend/memory/memory_store.db

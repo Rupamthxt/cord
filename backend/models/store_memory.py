@@ -1,7 +1,8 @@
 import uuid
 import logging
+import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from qdrant_client.models import PointStruct
 
 from backend.models.setup_client import client
@@ -11,6 +12,30 @@ from backend.ingestion.entity_extractor import EntityExtractor
 logger = logging.getLogger(__name__)
 COLLECTION_NAME = "workspace_memory"
 extractor = EntityExtractor()
+
+
+def run_incremental_intelligence(points_data: List[Tuple[str, str, List[float], Dict[str, Any]]]):
+    """
+    Background worker function that processes new ingestion chunks
+    incrementally to map co-occurrences, compute correlations, and abstract events.
+    """
+    try:
+        from backend.services.correlation_engine import CrossSourceCorrelationEngine
+        from backend.ingestion.event_extractor import EventExtractor
+        
+        correlation_engine = CrossSourceCorrelationEngine()
+        event_extractor = EventExtractor()
+        
+        logger.info(f"Background incremental processing started for {len(points_data)} chunks...")
+        for chunk_id, text, embedding, payload in points_data:
+            # 1. Update correlations and co-occurrence scores
+            correlation_engine.process_new_chunk(chunk_id, text, embedding, payload)
+            # 2. Extract operational events
+            event_extractor.detect_and_extract_event(text, chunk_id, payload)
+        logger.info("Background incremental processing completed.")
+    except Exception as e:
+        logger.error(f"Error in background incremental processing: {e}", exc_info=True)
+
 
 
 def standardize_metadata(metadata: Any) -> Dict[str, Any]:
@@ -151,12 +176,19 @@ def store_chunks(chunks, metadata=None):
         embedding = get_embedding(chunk)
 
         # Build structured payload matching intelligence expectations
+        ts_iso = std_meta["timestamp"]
+        try:
+            ts_unix = datetime.fromisoformat(ts_iso.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            ts_unix = datetime.now(timezone.utc).timestamp()
+
         payload = {
             "text": chunk,
             "source": std_meta["source"],
             "source_type": std_meta["source_type"],
             "author": std_meta["author"],
-            "timestamp": std_meta["timestamp"],
+            "timestamp": ts_iso,
+            "timestamp_unix": ts_unix,
             "url": std_meta["url"],
             "hierarchy": std_meta["hierarchy"],
             "team": std_meta["team"],
@@ -178,6 +210,21 @@ def store_chunks(chunks, metadata=None):
         collection_name=COLLECTION_NAME,
         points=points
     )
+
+    # Launch background intelligence processing asynchronously
+    try:
+        points_data = [
+            (p.id, p.payload["text"], p.vector, p.payload)
+            for p in points
+        ]
+        bg_thread = threading.Thread(
+            target=run_incremental_intelligence,
+            args=(points_data,),
+            daemon=True
+        )
+        bg_thread.start()
+    except Exception as e:
+        logger.error(f"Failed to start background intelligence thread: {e}")
 
     logger.info(f"Stored {len(points)} chunks with standardized metadata and entity extraction.")
     print(f"Stored {len(points)} chunks")

@@ -124,6 +124,7 @@ class Ranker:
             # Ensure safe extraction of metadata fields
             metadata = payload.get("metadata", {})
             result_item = {
+                "id": str(point.id),
                 "content": payload.get("text", ""),
                 "score": round(score_final, 4),
                 "source": source,
