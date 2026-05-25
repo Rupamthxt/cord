@@ -111,6 +111,14 @@ class DBManager:
                     related_events TEXT
                 )
             """)
+        # Ensure workspace columns exist (migration fallbacks)
+        for tbl in ["events", "correlations", "patterns"]:
+            try:
+                with self.get_connection() as conn:
+                    conn.execute(f"ALTER TABLE {tbl} ADD COLUMN workspace_id TEXT DEFAULT 'default_workspace'")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
         logger.info(f"SQLite Relational Memory database initialized at: {DB_PATH}")
 
     def add_event(
@@ -122,15 +130,16 @@ class DBManager:
         event_type: str,
         entities: List[str],
         source_refs: List[str],
-        related_teams: List[str]
+        related_teams: List[str],
+        workspace_id: str = "default_workspace"
     ):
         with self.get_connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO events (event_id, title, timestamp, summary, event_type, related_teams)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO events (event_id, title, timestamp, summary, event_type, related_teams, workspace_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (event_id, title, timestamp, summary, event_type, ",".join(related_teams))
+                (event_id, title, timestamp, summary, event_type, ",".join(related_teams), workspace_id)
             )
             for entity in entities:
                 conn.execute(
@@ -160,7 +169,8 @@ class DBManager:
                 "event_type": row["event_type"],
                 "related_teams": row["related_teams"].split(",") if row["related_teams"] else [],
                 "entities": [r["entity_name"] for r in entities_rows],
-                "source_refs": [r["source_ref"] for r in source_rows]
+                "source_refs": [r["source_ref"] for r in source_rows],
+                "workspace_id": row["workspace_id"] if "workspace_id" in row.keys() else "default_workspace"
             }
 
     def record_cooccurrence(self, entity_a: str, entity_b: str, weight: float = 1.0, timestamp: str = None):
@@ -200,21 +210,22 @@ class DBManager:
             rows = conn.execute(query, (entity_name, entity_name)).fetchall()
             return [{"entity": r["related_entity"], "score": r["score"]} for r in rows]
 
-    def add_correlation(self, source_a: str, source_b: str, c_type: str, score: float, reason: str, timestamp: str):
+    def add_correlation(self, source_a: str, source_b: str, c_type: str, score: float, reason: str, timestamp: str, workspace_id: str = "default_workspace"):
         # Order inputs lexicographically to keep database keys stable
         s_first, s_second = sorted([source_a, source_b])
         correlation_id = f"{s_first}_{s_second}_{c_type}"
         with self.get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO correlations (correlation_id, source_a, source_b, correlation_type, score, reason, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO correlations (correlation_id, source_a, source_b, correlation_type, score, reason, timestamp, workspace_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(correlation_id) DO UPDATE SET
                     score = EXCLUDED.score,
                     reason = EXCLUDED.reason,
-                    timestamp = EXCLUDED.timestamp
+                    timestamp = EXCLUDED.timestamp,
+                    workspace_id = EXCLUDED.workspace_id
                 """,
-                (correlation_id, s_first, s_second, c_type, score, reason, timestamp)
+                (correlation_id, s_first, s_second, c_type, score, reason, timestamp, workspace_id)
             )
 
     def get_correlations_for_source(self, source_id: str) -> List[Dict[str, Any]]:
@@ -241,7 +252,8 @@ class DBManager:
         self,
         start_time: str = None,
         end_time: str = None,
-        limit: int = 20
+        limit: int = 20,
+        workspace_id: str = None
     ) -> List[Dict[str, Any]]:
         with self.get_connection() as conn:
             query = "SELECT event_id FROM events"
@@ -254,6 +266,9 @@ class DBManager:
             if end_time:
                 conditions.append("timestamp <= ?")
                 params.append(end_time)
+            if workspace_id:
+                conditions.append("workspace_id = ?")
+                params.append(workspace_id)
                 
             if conditions:
                 query += " WHERE " + " AND ".join(conditions)
@@ -280,14 +295,15 @@ class DBManager:
         confidence: float,
         last_detected: str,
         entities: List[str],
-        related_events: List[str]
+        related_events: List[str],
+        workspace_id: str = "default_workspace"
     ):
         with self.get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO patterns (
-                    pattern_id, pattern_type, name, description, severity, confidence, last_detected, entities, related_events
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    pattern_id, pattern_type, name, description, severity, confidence, last_detected, entities, related_events, workspace_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     pattern_id,
@@ -298,7 +314,8 @@ class DBManager:
                     confidence,
                     last_detected,
                     ",".join(entities),
-                    ",".join(related_events)
+                    ",".join(related_events),
+                    workspace_id
                 )
             )
 
@@ -316,14 +333,16 @@ class DBManager:
                 "confidence": row["confidence"],
                 "last_detected": row["last_detected"],
                 "entities": row["entities"].split(",") if row["entities"] else [],
-                "related_events": row["related_events"].split(",") if row["related_events"] else []
+                "related_events": row["related_events"].split(",") if row["related_events"] else [],
+                "workspace_id": row["workspace_id"] if "workspace_id" in row.keys() else "default_workspace"
             }
 
     def get_patterns(
         self,
         pattern_type: Optional[str] = None,
         min_confidence: float = 0.0,
-        limit: int = 10
+        limit: int = 10,
+        workspace_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         with self.get_connection() as conn:
             query = "SELECT * FROM patterns WHERE confidence >= ?"
@@ -331,6 +350,9 @@ class DBManager:
             if pattern_type:
                 query += " AND pattern_type = ?"
                 params.append(pattern_type)
+            if workspace_id:
+                query += " AND workspace_id = ?"
+                params.append(workspace_id)
             query += " ORDER BY last_detected DESC LIMIT ?"
             params.append(limit)
             
@@ -345,7 +367,8 @@ class DBManager:
                     "confidence": r["confidence"],
                     "last_detected": r["last_detected"],
                     "entities": r["entities"].split(",") if r["entities"] else [],
-                    "related_events": r["related_events"].split(",") if r["related_events"] else []
+                    "related_events": r["related_events"].split(",") if r["related_events"] else [],
+                    "workspace_id": r["workspace_id"] if "workspace_id" in r.keys() else "default_workspace"
                 }
                 for r in rows
             ]

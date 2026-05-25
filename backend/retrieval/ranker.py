@@ -121,7 +121,6 @@ class Ranker:
             score_final = score_cosine + boost_recency + boost_hierarchy + boost_entities + boost_source
             
             # Format and enrich document result structure
-            # Ensure safe extraction of metadata fields
             metadata = payload.get("metadata", {})
             result_item = {
                 "id": str(point.id),
@@ -129,6 +128,7 @@ class Ranker:
                 "score": round(score_final, 4),
                 "source": source,
                 "source_type": payload.get("source_type", "document"),
+                "workspace_id": payload.get("workspace_id", "default_workspace"),
                 "author": payload.get("author", "unknown"),
                 "timestamp": payload.get("timestamp", ""),
                 "url": payload.get("url", ""),

@@ -222,7 +222,11 @@ The server will start at `http://0.0.0.0:8000`.
 
 ## 📡 API Reference
 
-### 1. Standard Search
+### 1. Web UI Dashboard
+`GET /`
+Serves the premium, dark-themed, glassmorphic Single Page App (SPA) dashboard. Contains query execution console, interactive chronological timeline checklist, SQLite correlation link graphs, semantic evidence cards, and one-click demo controls.
+
+### 2. Standard Search
 `POST /search`
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -230,7 +234,7 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:8000/search
 ```
 
-### 2. Chronological Timeline Search
+### 3. Chronological Timeline Search
 `POST /timeline/search`
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -238,7 +242,7 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:8000/timeline/search
 ```
 
-### 3. Patterns Search
+### 4. Patterns Search
 `POST /patterns/search`
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -246,28 +250,110 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:8000/patterns/search
 ```
 
-### 4. Operational Insights
-Retrieve structured query analytics, chronological triggers, and confidence diagnostics.
+### 5. Workspace-Scoped Operational Insights
+Retrieve structured query analytics, chronological triggers, and confidence diagnostics isolated by `workspace_id` (default: `"default_workspace"`).
 
-- **Issues Insight**: `POST /insights/issues`
-- **Trends Insight**: `POST /insights/trends`
 - **Root Cause Insight**: `POST /insights/root-causes`
+- **Deployments Insight**: `POST /insights/deployments`
+- **Incidents Insight**: `POST /insights/incidents`
+- **Trends Insight**: `POST /insights/trends`
 - **Escalations Insight**: `POST /insights/escalations`
 - **Bottlenecks Insight**: `POST /insights/bottlenecks`
+- **Issues Insight**: `POST /insights/operational-issues`
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"query": "Why did ServiceA fail after release v2.3?", "limit": 5}' \
+  -d '{"query": "Why did ServiceA fail after release v2.3?", "limit": 5, "workspace_id": "production_workspace"}' \
   http://localhost:8000/insights/root-causes
 ```
 
+
+### 6. Connector Integrations
+- **Sync Jira Tickets**: `POST /connectors/jira/sync`
+  Synchronizes tickets from the production-grade Jira connector mock client into the scoped workspace.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"workspace_id": "custom_workspace"}' \
+    http://localhost:8000/connectors/jira/sync
+  ```
+
+### 7. Demo Simulations & Diagnostics
+- **Run Live Incident Simulation**: `POST /demo/simulate`
+  Ingests a cohesive sequence of events (Notion deployment doc, Slack database alarm thread, Jira bug ticket) into the pipeline to trigger and test live correlation scanners.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"workspace_id": "simulation_workspace"}' \
+    http://localhost:8000/demo/simulate
+  ```
+
 ---
+
+## 🕸️ Entity Memory Graph Layer
+
+Cord features a structured organizational entity and relationship graph layer built on PostgreSQL. It automatically parses text chunks using LLMs (local Ollama instance) or regex fallback logic to extract nodes (`person`, `team`, `project`, `incident`, `system`, etc.) and directed typed edges (`owns`, `depends_on`, `caused`, etc.), and links them to the underlying semantic document chunks.
+
+### 🛢️ Database Configuration & Migrations
+Specify the PostgreSQL connection string via the `GRAPH_DATABASE_URL` environment variable:
+```bash
+export GRAPH_DATABASE_URL="postgresql+asyncpg://cord:cord@localhost:5432/cord_graph"
+```
+
+Initialize the database schema (creates tables `cord_entities`, `cord_entity_aliases`, `cord_relationships`, and `cord_chunk_entity_refs`):
+```bash
+python -m backend.graph.migrations
+```
+
+### 🔗 Graph & Entity API Endpoints
+
+- **Search Entities**: `POST /entities/search`
+  Searches for entities within a workspace using a prefix or substring matcher.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"query": "apollo", "workspace_id": "default_workspace"}' \
+    http://localhost:8000/entities/search
+  ```
+
+- **Graph Neighborhood (Ego-Graph)**: `GET /graph/neighborhood/{entity_id}`
+  Retrieves incoming/outgoing edges up to 2 hops from the starting entity.
+  ```bash
+  curl http://localhost:8000/graph/neighborhood/550e8400-e29b-41d4-a716-446655440000?depth=1
+  ```
+
+- **Enriched Graph Search**: `POST /graph/search`
+  Performs hybrid semantic search over Qdrant memory chunks, then enriches the results with related entity nodes and localized neighborhood relationships from PostgreSQL.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"query": "Why is the database slow?", "workspace_id": "default_workspace"}' \
+    http://localhost:8000/graph/search
+  ```
+
+- **Direct Trigger Extraction**: `POST /extract/chunk`
+  Manually triggers entity extraction and deduplication on a text chunk.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"text": "John Doe deployed Service A to production.", "chunk_id": "chunk_uuid_123"}' \
+    http://localhost:8000/extract/chunk
+  ```
+
+- **Merge Entities**: `POST /entities/merge`
+  Manually merges a duplicate entity into a canonical canonical record, updating all existing chunk references and relationships.
+  ```bash
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{"canonical_id": "uuid-1", "duplicate_id": "uuid-2"}' \
+    http://localhost:8000/entities/merge
+  ```
+
+---
+
 
 ## 🧪 Verification & Testing
 
-Verify that all systems (ingestion, vector indexes, relation SQLite mappings, query reasoners, and intelligence synthesis pipelines) are functioning correctly:
+Verify that all systems (ingestion, vector indexes, relation SQLite mappings, query reasoners, intelligence synthesis pipelines, and security boundaries) are functioning correctly:
 
 ```bash
+# Run Product Verification Tests (Jira Connector, API schemas, and Workspace Isolation Security boundaries)
+python -m backend.tests.test_operational_product
+
 # Run Multi-Dimensional Search Tests
 python -m backend.tests.test_extended_search
 

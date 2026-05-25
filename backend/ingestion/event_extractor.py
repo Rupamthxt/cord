@@ -113,6 +113,8 @@ class EventExtractor:
 
         event_id = f"event_{chunk_id}"
 
+        workspace_id = metadata.get("workspace_id", "default_workspace")
+
         # 1. Store in SQLite Database
         db_manager.add_event(
             event_id=event_id,
@@ -122,7 +124,8 @@ class EventExtractor:
             event_type=matched_type,
             entities=entities,
             source_refs=[chunk_id],
-            related_teams=related_teams
+            related_teams=related_teams,
+            workspace_id=workspace_id
         )
 
         # 2. Index in Qdrant events collection (semantic search enablement)
@@ -150,7 +153,8 @@ class EventExtractor:
                             "event_type": matched_type,
                             "entities": entities,
                             "source_refs": [chunk_id],
-                            "related_teams": related_teams
+                            "related_teams": related_teams,
+                            "workspace_id": workspace_id
                         }
                     )
                 ]

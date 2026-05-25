@@ -24,29 +24,35 @@ class EvidenceAggregator:
     def __init__(self, db_manager: Optional[DBManager] = None):
         self.db = db_manager or DBManager()
 
-    def aggregate(self, query: str, limit: int = 10) -> Dict[str, Any]:
+    def aggregate(self, query: str, limit: int = 10, workspace_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Assembles all related chunks, events, and correlations for a query.
         """
-        logger.info(f"Aggregating evidence for query: '{query}'...")
+        logger.info(f"Aggregating evidence for query: '{query}' in workspace '{workspace_id}'...")
         
         # 1. Extract query entities
         query_extraction = extractor.extract(query)
         query_entities = query_extraction["entities"]
         
-        # 2. Retrieve chunks from standard reasoning search
-        search_res = search(query=query, limit=limit * 2)
+        # 2. Retrieve chunks from standard reasoning search with workspace isolation
+        search_res = search(query=query, limit=limit * 2, workspace_id=workspace_id)
         raw_chunks = search_res.get("results", [])
 
         # 3. Retrieve events
-        # A. Semantically from Qdrant
+        # A. Semantically from Qdrant with workspace filter
         semantic_events = []
         try:
             from backend.embeddings.model import get_embedding
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
             query_emb = get_embedding(query)
+            
+            ws_filter = workspace_id or "default_workspace"
+            q_filter = Filter(must=[FieldCondition(key="workspace_id", match=MatchValue(value=ws_filter))])
+            
             q_res = client.query_points(
                 collection_name="workspace_events",
                 query=query_emb,
+                query_filter=q_filter,
                 limit=limit
             )
             for p in (q_res.points or []):
@@ -65,18 +71,19 @@ class EvidenceAggregator:
             if "not found" not in str(e).lower():
                 logger.warning(f"Failed to query events from Qdrant: {e}")
 
-        # B. Relational from SQLite based on entities
+        # B. Relational from SQLite based on entities and workspace isolation
         relational_events = []
+        ws_filter = workspace_id or "default_workspace"
         for ent in query_entities:
             with self.db.get_connection() as conn:
                 rows = conn.execute(
                     """
                     SELECT e.* FROM events e
                     JOIN event_entities ee ON e.event_id = ee.event_id
-                    WHERE ee.entity_name = ?
+                    WHERE ee.entity_name = ? AND e.workspace_id = ?
                     ORDER BY e.timestamp DESC LIMIT 10
                     """,
-                    (ent,)
+                    (ent, ws_filter)
                 ).fetchall()
                 for r in rows:
                     ev = self.db.get_event(r["event_id"])

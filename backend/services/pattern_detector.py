@@ -12,6 +12,7 @@ class PatternDetector:
     - Recurring incidents involving the same entity (e.g. repeated database instability).
     - Escalation chains (e.g. incidents/escalations happening within 60 minutes of a deployment).
     - Frequency spikes (e.g. sudden volume increases of specific event types).
+    Enforces strict workspace isolation.
     """
 
     def __init__(self, db_manager: Optional[DBManager] = None):
@@ -22,21 +23,25 @@ class PatternDetector:
         Runs the pattern detection suite on a newly created event.
         """
         try:
-            logger.info(f"Analyzing operational pattern triggers for event '{event['title']}' ({event_id})...")
+            workspace_id = event.get("workspace_id", "default_workspace")
+            logger.info(
+                f"Analyzing operational pattern triggers for event '{event['title']}' "
+                f"({event_id}) in workspace '{workspace_id}'..."
+            )
             
             # Rule 1: Recurring Issues / Incidents
-            self._detect_recurring_incidents(event_id, event)
+            self._detect_recurring_incidents(event_id, event, workspace_id)
 
             # Rule 2: Escalation Chains (Deployment -> Incident / Escalation)
-            self._detect_escalation_chains(event_id, event)
+            self._detect_escalation_chains(event_id, event, workspace_id)
 
             # Rule 3: Frequency Spikes
-            self._detect_frequency_spikes(event_id, event)
+            self._detect_frequency_spikes(event_id, event, workspace_id)
 
         except Exception as e:
             logger.error(f"Failed pattern detection for event {event_id}: {e}", exc_info=True)
 
-    def _detect_recurring_incidents(self, event_id: str, event: Dict[str, Any]):
+    def _detect_recurring_incidents(self, event_id: str, event: Dict[str, Any], workspace_id: str):
         """
         Detects if incidents or escalations sharing entities occur repeatedly within the last 7 days.
         """
@@ -46,8 +51,8 @@ class PatternDetector:
         now = datetime.now(timezone.utc)
         seven_days_ago = (now - timedelta(days=7)).isoformat()
         
-        # Fetch events from last 7 days
-        recent_events = self.db.get_timeline(start_time=seven_days_ago, limit=200)
+        # Fetch events from last 7 days in the same workspace
+        recent_events = self.db.get_timeline(start_time=seven_days_ago, limit=200, workspace_id=workspace_id)
         
         entities = event.get("entities", [])
         if not entities:
@@ -92,11 +97,12 @@ class PatternDetector:
                     confidence=round(confidence, 2),
                     last_detected=now.isoformat(),
                     entities=[entity],
-                    related_events=event_ids
+                    related_events=event_ids,
+                    workspace_id=workspace_id
                 )
                 logger.info(f"Pattern detected: '{name}' (Confidence: {confidence:.2f})")
 
-    def _detect_escalation_chains(self, event_id: str, event: Dict[str, Any]):
+    def _detect_escalation_chains(self, event_id: str, event: Dict[str, Any], workspace_id: str):
         """
         Detects if an incident or escalation (or discussion) occurs within 60 minutes of a deployment event.
         """
@@ -112,11 +118,13 @@ class PatternDetector:
         except Exception:
             event_time = datetime.now(timezone.utc)
 
-        # Look back 60 minutes for deployment events
+        # Look back 60 minutes for deployment events in the same workspace
         start_lookback = (event_time - timedelta(minutes=60)).isoformat()
         end_lookback = event_time.isoformat()
         
-        recent_events = self.db.get_timeline(start_time=start_lookback, end_time=end_lookback, limit=50)
+        recent_events = self.db.get_timeline(
+            start_time=start_lookback, end_time=end_lookback, limit=50, workspace_id=workspace_id
+        )
         
         deployments = [ev for ev in recent_events if ev.get("event_type") == "deployment"]
         if not deployments:
@@ -153,11 +161,12 @@ class PatternDetector:
                 confidence=0.85,
                 last_detected=datetime.now(timezone.utc).isoformat(),
                 entities=filtered_entities,
-                related_events=[deploy["event_id"], event_id]
+                related_events=[deploy["event_id"], event_id],
+                workspace_id=workspace_id
             )
             logger.info(f"Pattern detected: '{name}' between deploy {deploy['event_id']} and issue {event_id}")
 
-    def _detect_frequency_spikes(self, event_id: str, event: Dict[str, Any]):
+    def _detect_frequency_spikes(self, event_id: str, event: Dict[str, Any], workspace_id: str):
         """
         Detects if the volume of events of a specific type in the last 24h exceeds the daily baseline.
         """
@@ -169,8 +178,8 @@ class PatternDetector:
         one_day_ago = (now - timedelta(days=1)).isoformat()
         eight_days_ago = (now - timedelta(days=8)).isoformat()
 
-        # Get all events from the past 8 days
-        events_last_8_days = self.db.get_timeline(start_time=eight_days_ago, limit=500)
+        # Get all events from the past 8 days in the same workspace
+        events_last_8_days = self.db.get_timeline(start_time=eight_days_ago, limit=500, workspace_id=workspace_id)
         
         # Count in last 24h vs preceding 7 days
         count_24h = 0
@@ -192,8 +201,6 @@ class PatternDetector:
         # Calculate average daily count for baseline
         avg_daily_baseline = count_baseline / 7.0
         
-        # If the count in the last 24h is significantly high (e.g. count_24h >= 3 and count_24h > 3 * avg_daily_baseline)
-        # Note: If baseline is 0, we can trigger if count_24h >= 3.
         is_spike = False
         if avg_daily_baseline == 0 and count_24h >= 3:
             is_spike = True
@@ -226,6 +233,7 @@ class PatternDetector:
                 confidence=0.80,
                 last_detected=now.isoformat(),
                 entities=[],
-                related_events=event_ids
+                related_events=event_ids,
+                workspace_id=workspace_id
             )
             logger.info(f"Pattern detected: '{name}' (Count: {count_24h}, Baseline: {avg_daily_baseline:.1f}/day)")

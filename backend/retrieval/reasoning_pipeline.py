@@ -78,6 +78,7 @@ class ReasoningPipeline:
         end_time: Optional[str] = None,
         hierarchy_scope: Optional[str] = None,
         entities: Optional[List[str]] = None,
+        workspace_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Executes the reasoning stages to retrieve semantically matching,
@@ -101,18 +102,16 @@ class ReasoningPipeline:
         # Standard retrieve candidates from search
         from backend.retrieval.search import search as base_search
         
-        # Call base search with the cleaned query and filters
-        # Note: we temporarily disable the base search's ranker calling by getting candidates directly
-        # or we just let it execute and then apply our advanced reasoning boosts here!
-        # Actually, let's query Qdrant directly inside the pipeline to avoid loops,
-        # or call base_search. Direct query is much cleaner and fits pipeline encapsulation!
-        
         from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny, Range
         from backend.models.setup_client import client
         from backend.embeddings.model import get_embedding
         
         query_embedding = get_embedding(search_query)
         filter_conditions = []
+
+        # Enforce workspace security isolation
+        ws_filter = workspace_id or "default_workspace"
+        filter_conditions.append(FieldCondition(key="workspace_id", match=MatchValue(value=ws_filter)))
 
         if sources:
             filter_conditions.append(FieldCondition(key="source", match=MatchAny(any=sources)))

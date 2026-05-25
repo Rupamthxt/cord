@@ -21,6 +21,7 @@ def search(
     end_time: Optional[str] = None,
     hierarchy_scope: Optional[str] = None,
     entities: Optional[List[str]] = None,
+    workspace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Performs vector similarity search combined with metadata-aware filters
@@ -37,5 +38,6 @@ def search(
         start_time=start_time,
         end_time=end_time,
         hierarchy_scope=hierarchy_scope,
-        entities=entities
+        entities=entities,
+        workspace_id=workspace_id
     )

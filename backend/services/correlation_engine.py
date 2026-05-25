@@ -136,7 +136,8 @@ class CrossSourceCorrelationEngine:
                         c_type=correlation_type,
                         score=round(combined_score, 4),
                         reason=reason_str,
-                        timestamp=now_str
+                        timestamp=now_str,
+                        workspace_id=metadata.get("workspace_id", "default_workspace")
                     )
                     
                     logger.debug(

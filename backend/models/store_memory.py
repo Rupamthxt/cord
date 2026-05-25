@@ -39,7 +39,21 @@ def run_incremental_intelligence(points_data: List[Tuple[str, str, List[float], 
                     pattern_detector.analyze_event(event["event_id"], event)
                 except Exception as pe:
                     logger.error(f"Failed to analyze patterns for event {event.get('event_id')}: {pe}", exc_info=True)
+            
+            # 3. Run organizational entity extraction (Ollama → PostgreSQL graph)
+            try:
+                from backend.extraction.pipeline import extraction_pipeline
+                workspace_id = payload.get("workspace_id", "default_workspace")
+                extraction_pipeline.process_chunk_sync(
+                    chunk_text=text,
+                    chunk_id=chunk_id,
+                    workspace_id=workspace_id,
+                    metadata=payload
+                )
+            except Exception as ee:
+                logger.warning(f"Entity extraction skipped for chunk {chunk_id}: {ee}")
         logger.info("Background incremental processing completed.")
+
     except Exception as e:
         logger.error(f"Error in background incremental processing: {e}", exc_info=True)
 
@@ -83,6 +97,8 @@ def standardize_metadata(metadata: Any) -> Dict[str, Any]:
         standardized["source_type"] = "chat_thread"
     elif standardized["source"] == "notion":
         standardized["source_type"] = "wiki_page"
+    elif standardized["source"] == "jira":
+        standardized["source_type"] = "ticket"
     elif "source_type" in meta_dict and meta_dict["source_type"]:
         standardized["source_type"] = str(meta_dict["source_type"])
 
@@ -193,6 +209,7 @@ def store_chunks(chunks, metadata=None):
             "text": chunk,
             "source": std_meta["source"],
             "source_type": std_meta["source_type"],
+            "workspace_id": std_meta["original_metadata"].get("workspace_id") or "default_workspace",
             "author": std_meta["author"],
             "timestamp": ts_iso,
             "timestamp_unix": ts_unix,

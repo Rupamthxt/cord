@@ -18,7 +18,7 @@ class RootCauseAnalyzer:
     def __init__(self, db_manager: Optional[DBManager] = None):
         self.db = db_manager or DBManager()
 
-    def analyze(self, query: str, related_events: List[Dict[str, Any]], correlations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze(self, query: str, related_events: List[Dict[str, Any]], correlations: List[Dict[str, Any]], workspace_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Traces relationships between events based on temporal sequencing and correlations.
         """
@@ -78,18 +78,19 @@ class RootCauseAnalyzer:
                     })
                     confidence_accum += matching_corr["score"]
 
-        # 3. Fetch matched pattern logs from SQLite
+        # 3. Fetch matched pattern logs from SQLite with workspace filtering
         # Extract query entities to find matching patterns
         query_extraction = extractor.extract(query)
         query_entities = query_extraction["entities"]
         
         matching_patterns = []
+        ws_filter = workspace_id or "default_workspace"
         for ent in query_entities:
-            # Let's query SQLite patterns table directly for this entity
+            # Let's query SQLite patterns table directly for this entity and workspace
             with self.db.get_connection() as conn:
                 rows = conn.execute(
-                    "SELECT * FROM patterns WHERE entities LIKE ? ORDER BY last_detected DESC",
-                    (f"%{ent}%",)
+                    "SELECT * FROM patterns WHERE entities LIKE ? AND workspace_id = ? ORDER BY last_detected DESC",
+                    (f"%{ent}%", ws_filter)
                 ).fetchall()
                 for r in rows:
                     pat = {

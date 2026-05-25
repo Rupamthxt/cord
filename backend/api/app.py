@@ -1,8 +1,9 @@
 import time
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Query, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from backend.retrieval.search import search
@@ -19,6 +20,17 @@ app = FastAPI(
     description="Backend service providing metadata-aware semantic retrieval, entity alignment, and hierarchy search.",
     version="1.1.0"
 )
+
+from backend.graph.router import router as graph_router
+app.include_router(graph_router)
+
+# Mount static files
+
+from fastapi.staticfiles import StaticFiles
+import os
+static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 # Request schemas
@@ -393,21 +405,75 @@ async def search_patterns(body: PatternsSearchRequest):
 class InsightsQueryRequest(BaseModel):
     query: str = Field(..., description="Query string for operational intelligence analysis.")
     limit: int = Field(default=10, ge=1, le=100)
+    workspace_id: Optional[str] = Field(default="default_workspace", description="Strict workspace isolation scope.")
+
+
+class JiraSyncRequest(BaseModel):
+    workspace_id: Optional[str] = Field(default="default_workspace", description="Workspace ID to sync tickets into.")
+
+
+class DemoSimulateRequest(BaseModel):
+    workspace_id: Optional[str] = Field(default="default_workspace", description="Workspace ID to run simulation in.")
 
 
 # ----------------------------------------------------
 # Operational Intelligence Routes
 # ----------------------------------------------------
 
-@app.post("/insights/issues", tags=["Intelligence"])
-async def get_issues_insights(body: InsightsQueryRequest):
+@app.post("/insights/operational-issues", tags=["Intelligence"])
+async def get_operational_issues_insights(body: InsightsQueryRequest):
     """
-    Surfaces recurring issues, outages, and system errors with supporting evidence.
+    Surfaces recurring tickets, outages, and system errors with supporting evidence.
     """
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit)
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        return res
+    except Exception as e:
+        logger.error(f"Operational issues insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Operational Issues Insight Error: {str(e)}")
+
+
+@app.post("/insights/deployments", tags=["Intelligence"])
+async def get_deployments_insights(body: InsightsQueryRequest):
+    """
+    Analyzes deployment history, release-related incidents, stability trends, and rollback events.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        return res
+    except Exception as e:
+        logger.error(f"Deployments insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Deployments Insight Error: {str(e)}")
+
+
+@app.post("/insights/incidents", tags=["Intelligence"])
+async def get_incidents_insights(body: InsightsQueryRequest):
+    """
+    Analyzes incident clusters, postmortem document summaries, and severity metrics.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        return res
+    except Exception as e:
+        logger.error(f"Incidents insight search failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal Incidents Insight Error: {str(e)}")
+
+
+@app.post("/insights/issues", tags=["Intelligence"])
+async def get_issues_insights(body: InsightsQueryRequest):
+    """
+    Backward compatible route surfacing recurring issues and errors.
+    """
+    try:
+        from backend.intelligence.pipeline import OperationalIntelligencePipeline
+        pipeline = OperationalIntelligencePipeline()
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Issues insight search failed: {e}", exc_info=True)
@@ -422,7 +488,7 @@ async def get_trends_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit)
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Trends insight search failed: {e}", exc_info=True)
@@ -437,7 +503,7 @@ async def get_root_causes_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit)
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Root causes insight search failed: {e}", exc_info=True)
@@ -452,7 +518,7 @@ async def get_escalations_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit)
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Escalations insight search failed: {e}", exc_info=True)
@@ -467,10 +533,154 @@ async def get_bottlenecks_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit)
+        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Bottlenecks insight search failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Bottlenecks Insight Error: {str(e)}")
+
+
+# ----------------------------------------------------
+# Integration Connectors Routes
+# ----------------------------------------------------
+
+@app.post("/connectors/jira/sync", tags=["Connectors"])
+async def sync_jira_tickets(body: JiraSyncRequest):
+    """
+    Synchronizes tickets from the production-grade Jira connector.
+    """
+    try:
+        from backend.connectors.jira.jira_connector import JiraConnector
+        from backend.ingestion.chunker import chunk_text
+        from backend.models.store_memory import store_chunks
+        
+        connector = JiraConnector(workspace_id=body.workspace_id)
+        docs = connector.fetch()
+        
+        for doc in docs:
+            chunks = chunk_text(doc.content)
+            store_chunks(chunks, metadata=doc)
+            
+        return {"status": "success", "synced_tickets_count": len(docs)}
+    except Exception as e:
+        logger.error(f"Jira sync API failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Jira Sync Error: {str(e)}")
+
+
+# ----------------------------------------------------
+# Demo Simulation Routes
+# ----------------------------------------------------
+
+@app.post("/demo/simulate", tags=["Diagnostics"])
+async def run_demo_simulation(body: DemoSimulateRequest):
+    """
+    Ingests simulated operational documents (Notion deploy, Slack alarm, Jira bug)
+    live into the pipeline to trigger and test pattern detection.
+    """
+    try:
+        from backend.ingestion.chunker import chunk_text
+        from backend.models.store_memory import store_chunks
+        from backend.models.memory_schema import MemoryDocument
+        
+        ws_id = body.workspace_id or "default_workspace"
+        now = datetime.now(timezone.utc)
+        
+        # 1. Notion deployment document
+        doc1 = MemoryDocument(
+            id=f"doc_sim_deploy_{ws_id}",
+            source="notion",
+            source_id="sim_deploy_1",
+            workspace_id=ws_id,
+            path="/Notion/Engineering/Deployments/ServiceA_v1_2",
+            title="Deployment Release: Service A Version 1.2.0",
+            content="""
+            Deploying project ServiceA version 1.2.0 to production environment.
+            Tuning Postgres db connection pool limits and setting webhook endpoints.
+            Triggered by Alice.
+            """,
+            author="Alice",
+            created_time=now - timedelta(minutes=45),
+            last_edited_time=now - timedelta(minutes=45)
+        )
+        
+        # 2. Slack discussion alert
+        doc2 = MemoryDocument(
+            id=f"doc_sim_slack_{ws_id}",
+            source="slack",
+            source_id="sim_slack_alert",
+            workspace_id=ws_id,
+            path="/Slack/alerts/ServiceAOutageAlert",
+            title="Slack Chat: #alerts - ServiceA database pool saturation",
+            content="""
+            Bob [12:05]: Project ServiceA is raising db timeout alerts in production environment!
+            Charlie [12:07]: Connection pool is saturated. PagerDuty escalation Sev-1 triggered for DevOps.
+            """,
+            author="Bob",
+            created_time=now - timedelta(minutes=35),
+            last_edited_time=now - timedelta(minutes=35)
+        )
+        
+        # 3. Jira bug ticket
+        doc3 = MemoryDocument(
+            id=f"doc_sim_jira_{ws_id}",
+            source="jira",
+            source_id="COR-505",
+            workspace_id=ws_id,
+            path="/Jira/Projects/COR/COR-505",
+            title="Jira Issue COR-505: Webhook validation timeout on ServiceA",
+            content="""
+            Summary: Webhook validation timeout on ServiceA
+            Status: Resolved
+            Assignee: Bob
+            Priority: Highest
+            Type: Bug
+            
+            Description:
+            Webhook validation fails with PostgreSQL timeout error. 
+            Related to Stripe payment webhook connections.
+            """,
+            author="Bob",
+            created_time=now - timedelta(minutes=25),
+            last_edited_time=now - timedelta(minutes=10),
+            metadata={"ticket_key": "COR-505", "status": "Resolved", "workspace_id": ws_id}
+        )
+        
+        # Store all
+        for doc in [doc1, doc2, doc3]:
+            chunks = chunk_text(doc.content)
+            store_chunks(chunks, metadata=doc)
+            
+        return {
+            "status": "success",
+            "message": f"Simulation data successfully ingested into workspace '{ws_id}'. Background patterns will resolve shortly.",
+            "documents_ingested": [doc1.id, doc2.id, doc3.id]
+        }
+    except Exception as e:
+        logger.error(f"Demo simulation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Demo Simulation Error: {str(e)}")
+
+
+# ----------------------------------------------------
+# UI Dashboard Web Server Route
+# ----------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
+async def get_dashboard():
+    """
+    Delivers the single-page glassmorphic HTML/JS dashboard dashboard workspace.
+    """
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+    index_path = os.path.join(static_dir, "index.html")
+    try:
+        with open(index_path, "r") as f:
+            html_content = f.read()
+        return html_content
+    except Exception as ex:
+        logger.error(f"Dashboard index.html loading failed: {ex}")
+        return HTMLResponse(
+            content=f"<h1>Dashboard index.html not found</h1><p>Please verify it exists at {index_path}. Details: {ex}</p>",
+            status_code=404
+        )
 
 

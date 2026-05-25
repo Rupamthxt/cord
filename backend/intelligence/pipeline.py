@@ -24,24 +24,25 @@ class OperationalIntelligencePipeline:
         self.analyzer = RootCauseAnalyzer(db_manager=self.db)
         self.synthesizer = InsightSynthesizer()
 
-    def execute(self, query: str, limit: int = 10) -> Dict[str, Any]:
+    def execute(self, query: str, limit: int = 10, workspace_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Runs the full operational intelligence workflow.
         """
         start_time = time.time()
-        logger.info(f"Executing Operational Intelligence Pipeline for: '{query}'")
+        logger.info(f"Executing Operational Intelligence Pipeline for: '{query}' in workspace: '{workspace_id}'")
 
         # Stage 1: Query Classification
         classification = self.classifier.classify(query)
 
         # Stage 2 & 3: Evidence Aggregation (fetches chunks, events, and correlations)
-        evidence = self.aggregator.aggregate(query, limit=limit)
+        evidence = self.aggregator.aggregate(query, limit=limit, workspace_id=workspace_id)
 
         # Stage 4: Root Cause & Escalation Chain Analyzer
         root_cause = self.analyzer.analyze(
             query=query,
             related_events=evidence["events"],
-            correlations=evidence["correlations"]
+            correlations=evidence["correlations"],
+            workspace_id=workspace_id
         )
 
         # Stage 5: Insight Synthesis
