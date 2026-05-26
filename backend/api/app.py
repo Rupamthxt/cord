@@ -6,7 +6,7 @@ from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from backend.retrieval.search import search
+from backend.intelligence.retrieval.search import search
 
 # Setup logging
 logging.basicConfig(
@@ -24,13 +24,17 @@ app = FastAPI(
 from backend.graph.router import router as graph_router
 app.include_router(graph_router)
 
-# Mount static files
+from backend.intelligence.insights.router import router as insights_router
+app.include_router(insights_router, prefix="/insights")
+
+# Mount static files from root-level frontend directory
 
 from fastapi.staticfiles import StaticFiles
 import os
-static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
-os.makedirs(static_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+frontend_dir = os.path.join(project_root, "frontend")
+os.makedirs(frontend_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
 
 # Request schemas
@@ -170,8 +174,8 @@ async def search_events(body: EventsSearchRequest):
     """
     try:
         if body.query:
-            from backend.embeddings.model import get_embedding
-            from backend.models.setup_client import client
+            from backend.core.embeddings.model import get_embedding
+            from backend.core.models.setup_client import client
             from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
             
             query_embedding = get_embedding(body.query)
@@ -225,7 +229,7 @@ async def search_events(body: EventsSearchRequest):
                 })
             return {"query": body.query, "events": events}
         else:
-            from backend.services.db_manager import DBManager
+            from backend.core.services.db_manager import DBManager
             db = DBManager()
             events = db.get_timeline(
                 start_time=body.start_time,
@@ -266,8 +270,8 @@ async def search_timeline(body: TimelineSearchRequest):
 
         # 2. Query events semantically to mix chronologically
         try:
-            from backend.embeddings.model import get_embedding
-            from backend.models.setup_client import client
+            from backend.core.embeddings.model import get_embedding
+            from backend.core.models.setup_client import client
             query_embedding = get_embedding(body.query)
             
             results_events = client.query_points(
@@ -317,7 +321,7 @@ async def search_correlations(body: CorrelationsSearchRequest):
     try:
         results = search(query=body.query, limit=body.limit)
         
-        from backend.services.db_manager import DBManager
+        from backend.core.services.db_manager import DBManager
         db = DBManager()
         
         correlations_output = []
@@ -362,7 +366,7 @@ async def search_patterns(body: PatternsSearchRequest):
     Search for detected operational patterns and recurring issue trends.
     """
     try:
-        from backend.services.db_manager import DBManager
+        from backend.core.services.db_manager import DBManager
         db = DBManager()
         
         # Retrieve patterns matching criteria from SQLite
@@ -551,8 +555,8 @@ async def sync_jira_tickets(body: JiraSyncRequest):
     """
     try:
         from backend.connectors.jira.jira_connector import JiraConnector
-        from backend.ingestion.chunker import chunk_text
-        from backend.models.store_memory import store_chunks
+        from backend.connectors.ingestion.chunker import chunk_text
+        from backend.core.models.store_memory import store_chunks
         
         connector = JiraConnector(workspace_id=body.workspace_id)
         docs = connector.fetch()
@@ -578,9 +582,9 @@ async def run_demo_simulation(body: DemoSimulateRequest):
     live into the pipeline to trigger and test pattern detection.
     """
     try:
-        from backend.ingestion.chunker import chunk_text
-        from backend.models.store_memory import store_chunks
-        from backend.models.memory_schema import MemoryDocument
+        from backend.connectors.ingestion.chunker import chunk_text
+        from backend.core.models.store_memory import store_chunks
+        from backend.core.models.memory_schema import MemoryDocument
         
         ws_id = body.workspace_id or "default_workspace"
         now = datetime.now(timezone.utc)
@@ -670,8 +674,9 @@ async def get_dashboard():
     Delivers the single-page glassmorphic HTML/JS dashboard dashboard workspace.
     """
     import os
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
-    index_path = os.path.join(static_dir, "index.html")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    frontend_dir = os.path.join(project_root, "frontend")
+    index_path = os.path.join(frontend_dir, "index.html")
     try:
         with open(index_path, "r") as f:
             html_content = f.read()

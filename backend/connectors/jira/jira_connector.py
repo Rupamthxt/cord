@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
 from backend.connectors.base import BaseConnector
-from backend.models.memory_schema import MemoryDocument
+from backend.core.models.memory_schema import MemoryDocument
 
 logger = logging.getLogger(__name__)
 

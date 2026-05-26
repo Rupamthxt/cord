@@ -2,12 +2,12 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from backend.models.store_memory import store_chunks
-from backend.ingestion.chunker import chunk_text
-from backend.models.memory_schema import MemoryDocument
-from backend.reasoning.query_classifier import QueryClassifier
+from backend.core.models.store_memory import store_chunks
+from backend.connectors.ingestion.chunker import chunk_text
+from backend.core.models.memory_schema import MemoryDocument
+from backend.intelligence.reasoning.query_classifier import QueryClassifier
 from backend.intelligence.evidence_aggregator import EvidenceAggregator
-from backend.reasoning.root_cause_analyzer import RootCauseAnalyzer
+from backend.intelligence.reasoning.root_cause_analyzer import RootCauseAnalyzer
 from backend.intelligence.pipeline import OperationalIntelligencePipeline
 
 # Setup logging

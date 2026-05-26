@@ -10,11 +10,11 @@ from backend.connectors.notion.notion_extraction.async_client import NotionClien
 from backend.connectors.notion.notion_extraction.crawler import NotionWorkspaceCrawler
 from backend.connectors.notion.notion_utils.retry import RetryConfig
 from backend.connectors.notion.notion_models.schemas import ExtractionStats
-from backend.models.memory_schema import MemoryDocument
-from backend.utils.pipeline import NormalizationPipeline
+from backend.core.models.memory_schema import MemoryDocument
+from backend.core.utils.pipeline import NormalizationPipeline
 from backend.connectors.notion.notion_utils.logging_config import get_logger
-from backend.ingestion.chunker import chunk_text
-from backend.models.store_memory import store_chunks
+from backend.connectors.ingestion.chunker import chunk_text
+from backend.core.models.store_memory import store_chunks
 
 logger = get_logger(__name__)
 

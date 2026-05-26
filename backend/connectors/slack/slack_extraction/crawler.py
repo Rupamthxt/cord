@@ -2,7 +2,7 @@ import re
 import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set
-from backend.models.memory_schema import MemoryDocument
+from backend.core.models.memory_schema import MemoryDocument
 from backend.connectors.slack.slack_extraction.client import SlackClientAsync
 from backend.connectors.notion.notion_utils.logging_config import get_logger
 

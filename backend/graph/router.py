@@ -15,24 +15,24 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from backend.entities.schema import (
+from backend.graph.entities.schema import (
     EntityNeighborhood,
     EntityRead,
     EntitySearchRequest,
     EntitySearchResult,
     EntityType,
 )
-from backend.entities.store import entity_store
+from backend.graph.entities.store import entity_store
 from backend.extraction.pipeline import extraction_pipeline
 from backend.graph.db import get_db_session
 from backend.graph.retriever import graph_retriever
-from backend.relationships.schema import (
+from backend.graph.relationships.schema import (
     RelationshipRead,
     RelationshipSearchRequest,
 )
-from backend.relationships.store import relationship_store
-from backend.entities.models import Relationship, Entity
-from backend.retrieval.search import search
+from backend.graph.relationships.store import relationship_store
+from backend.graph.entities.models import Relationship, Entity
+from backend.intelligence.retrieval.search import search
 
 logger = logging.getLogger(__name__)
 

@@ -2,10 +2,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple, Set
 
-from backend.retrieval.search import search
-from backend.services.db_manager import DBManager
-from backend.ingestion.entity_extractor import EntityExtractor
-from backend.models.setup_client import client
+from backend.intelligence.retrieval.search import search
+from backend.core.services.db_manager import DBManager
+from backend.connectors.ingestion.entity_extractor import EntityExtractor
+from backend.core.models.setup_client import client
 
 logger = logging.getLogger(__name__)
 extractor = EntityExtractor()
@@ -42,7 +42,7 @@ class EvidenceAggregator:
         # A. Semantically from Qdrant with workspace filter
         semantic_events = []
         try:
-            from backend.embeddings.model import get_embedding
+            from backend.core.embeddings.model import get_embedding
             from qdrant_client.models import Filter, FieldCondition, MatchValue
             query_emb = get_embedding(query)
             

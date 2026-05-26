@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 
 from backend.api.app import app
 from backend.connectors.jira.jira_connector import JiraConnector
-from backend.services.db_manager import DBManager
-from backend.models.setup_client import client as qdrant_client
+from backend.core.services.db_manager import DBManager
+from backend.core.models.setup_client import client as qdrant_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class TestOperationalProduct(unittest.TestCase):
         docs = connector.fetch()
         
         self.assertGreater(len(docs), 0, "Jira connector should fetch mock tickets")
-        from backend.models.store_memory import standardize_metadata
+        from backend.core.models.store_memory import standardize_metadata
         for doc in docs:
             self.assertEqual(doc.source, "jira")
             std_meta = standardize_metadata(doc)

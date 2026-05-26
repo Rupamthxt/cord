@@ -2,11 +2,11 @@ import time
 import logging
 from typing import Dict, Any, Optional
 
-from backend.reasoning.query_classifier import QueryClassifier
+from backend.intelligence.reasoning.query_classifier import QueryClassifier
 from backend.intelligence.evidence_aggregator import EvidenceAggregator
-from backend.reasoning.root_cause_analyzer import RootCauseAnalyzer
+from backend.intelligence.reasoning.root_cause_analyzer import RootCauseAnalyzer
 from backend.intelligence.insight_synthesizer import InsightSynthesizer
-from backend.services.db_manager import DBManager
+from backend.core.services.db_manager import DBManager
 
 logger = logging.getLogger(__name__)
 

@@ -115,7 +115,11 @@ async def init_db() -> None:
     at module load time (models import Base from this module).
     """
     # Lazy import — entities.models registers tables against Base
-    import backend.entities.models  # noqa: F401  # registers metadata
+    import backend.graph.entities.models  # noqa: F401  # registers metadata
+    import backend.graph.events.models  # noqa: F401  # registers event metadata
+    import backend.intelligence.insights.models  # noqa: F401  # registers insights metadata
+    import backend.intelligence.workflows.models  # noqa: F401  # registers workflows metadata
+
 
     logger.info("Initialising database schema on %s …", DATABASE_URL)
     try:

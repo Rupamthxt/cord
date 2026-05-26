@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORD // Operational Intelligence Dashboard</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">C</div>
+      <div class="logo-text">
+        <h1>CORD</h1>
+        <p>Operational Intelligence Platform</p>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <div class="workspace-picker">
+        <label for="workspace-id">Scope</label>
+        <input type="text" id="workspace-id" value="default_workspace" placeholder="workspace-id" title="Set scope key for queries & ingestions">
+      </div>
+      
+      <button id="btn-jira-sync" class="btn btn-secondary" title="Simulate synchronizing production tickets from Jira Integration Connector">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Jira Sync
+      </button>
+      
+      <button id="btn-demo-simulate" class="btn btn-accent" title="Trigger ingestion of Notion push, Slack alerts, and Jira issue chain to test live correlation scanners">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Simulate Incident
+      </button>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Left Column: Controls -->
+    <div class="console-column">
+      <div class="glass-card">
+        <div class="card-title">
+          <span>Query Console</span>
+          <span class="badge">HTTP POST</span>
+        </div>
+        
+        <div class="endpoint-selector">
+          <div class="endpoint-pill active" id="pill-root-causes" data-endpoint="/insights/root-causes">Root Cause</div>
+          <div class="endpoint-pill" id="pill-deployments" data-endpoint="/insights/deployments">Deployments</div>
+          <div class="endpoint-pill" id="pill-incidents" data-endpoint="/insights/incidents">Incidents</div>
+          <div class="endpoint-pill" id="pill-trends" data-endpoint="/insights/trends">Trends</div>
+        </div>
+
+        <textarea id="query-input" class="query-textarea" placeholder="Ask about system issues, latency, errors..."></textarea>
+        
+        <div class="sample-queries">
+          <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Quick Queries</p>
+          <button class="sample-query-btn" data-query="Why did ServiceA fail after deployment?">Why did ServiceA fail after deployment?</button>
+          <button class="sample-query-btn" data-query="Identify stripe payment webhook validation timeout patterns.">Stripe payment validation timeout patterns</button>
+          <button class="sample-query-btn" data-query="Explain database connection pool exhaustion triggers.">Database connection pool exhaustion</button>
+        </div>
+
+        <button id="btn-submit-query" class="btn btn-primary" style="width: 100%;">
+          Run Diagnostic Query
+        </button>
+      </div>
+
+      <div class="glass-card" style="flex-grow: 1;">
+        <div class="card-title">
+          <span>Platform Activity</span>
+          <span class="pulse-indicator" id="activity-pulse"></span>
+        </div>
+        <div class="status-panel" id="status-console">
+          <div class="status-log-line info">[System] CORD client initialized. Ready to receive request triggers.</div>
+          <div class="status-log-line">[System] Default Workspace: 'default_workspace' active.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Results -->
+    <div class="dashboard-main">
+      <!-- 1. Insight Summary -->
+      <div class="glass-card" id="insight-summary-card" style="display: none;">
+        <div class="insight-header">
+          <div class="insight-classification">
+            <span class="type-badge" id="res-classification">root_cause_analysis</span>
+            <span class="confidence-score">
+              Confidence: <strong id="res-confidence-pct">0%</strong>
+              <span class="confidence-bar"><span class="confidence-fill" id="res-confidence-fill"></span></span>
+            </span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);" id="res-execution-time">
+            Time: 0.00s
+          </div>
+        </div>
+
+        <div class="insight-summary-text" id="res-summary">
+          Waiting for query input...
+        </div>
+
+        <div class="insight-details">
+          <div class="detail-item">
+            <div class="detail-item-title">Trigger Reasoning Explanation</div>
+            <div class="detail-item-content" id="res-confidence-explanation">
+              No query executed yet.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Interactive Incident Timeline & SQLite Correlations Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" id="timeline-correlations-section" style="display: none;">
+        <!-- Timeline -->
+        <div class="glass-card" id="timeline-card" style="display: none;">
+          <div class="card-title">Derived Chronological Timeline</div>
+          <div class="timeline-container" id="timeline-events-list">
+            <!-- Event nodes will render here -->
+          </div>
+        </div>
+
+        <!-- Relational DB Correlations -->
+        <div class="glass-card" id="correlations-card" style="display: none;">
+          <div class="card-title">Cross-Source Relational Tracing (SQLite)</div>
+          <div class="correlations-list" id="correlations-links-list">
+            <!-- Correlation links will render here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Semantic Evidence Documents -->
+      <div class="glass-card" id="evidence-section" style="display: none;">
+        <div class="card-title">Ingested Supporting Evidence (Semantic Vector Chunks)</div>
+        <div class="evidence-grid" id="evidence-chunks-list">
+          <!-- Evidence cards will render here -->
+        </div>
+      </div>
+
+      <!-- Default Empty State -->
+      <div class="glass-card empty-state" id="panel-empty-state">
+        <div class="empty-state-icon">📡</div>
+        <div class="empty-state-text">No diagnostics data loaded. Enter a query or trigger the incident simulator to populate mock records.</div>
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+          <button class="btn btn-secondary" onclick="document.getElementById('btn-demo-simulate').click()">Run Simulator</button>
+          <button class="btn btn-primary" onclick="runDefaultQuery()">Query Default Workspace</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evidence Document Lightbox Modal -->
+  <div class="modal-overlay" id="evidence-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-doc-title">Document Details</h3>
+        <button class="close-btn" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          <span id="modal-doc-source">SOURCE: Notion</span>
+          <span id="modal-doc-author">AUTHOR: Alice</span>
+          <span id="modal-doc-time">TIME: 2026-05-24</span>
+        </div>
+        <div style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem;">Content Preview</div>
+        <pre id="modal-doc-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

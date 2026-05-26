@@ -7,8 +7,8 @@ import os
 import asyncio
 import logging
 from typing import List, Optional
-from backend.models.memory_schema import MemoryDocument
-from backend.utils.pipeline import NormalizationPipeline
+from backend.core.models.memory_schema import MemoryDocument
+from backend.core.utils.pipeline import NormalizationPipeline
 from backend.connectors.slack.slack_extraction.client import SlackClientAsync
 from backend.connectors.slack.slack_extraction.crawler import SlackWorkspaceCrawler
 from backend.connectors.notion.notion_utils.logging_config import get_logger

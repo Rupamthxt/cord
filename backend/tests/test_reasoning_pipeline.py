@@ -2,11 +2,11 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from backend.models.store_memory import store_chunks
-from backend.ingestion.chunker import chunk_text
-from backend.retrieval.search import search
-from backend.services.db_manager import DBManager
-from backend.models.memory_schema import MemoryDocument
+from backend.core.models.store_memory import store_chunks
+from backend.connectors.ingestion.chunker import chunk_text
+from backend.intelligence.retrieval.search import search
+from backend.core.services.db_manager import DBManager
+from backend.core.models.memory_schema import MemoryDocument
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -94,7 +94,7 @@ async def run_reasoning_verification():
     logger.info("\n--- TEST 2: Cross-Source Correlation Verification ---")
     # Let's retrieve correlations for the Slack incident document
     # Since our background thread processed them, let's query Qdrant to find the point UUID
-    from backend.models.setup_client import client
+    from backend.core.models.setup_client import client
     res = client.query_points(collection_name="workspace_memory", limit=10)
     
     correlations_found = False

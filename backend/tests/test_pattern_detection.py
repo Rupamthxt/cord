@@ -2,10 +2,10 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from backend.models.store_memory import store_chunks
-from backend.ingestion.chunker import chunk_text
-from backend.services.db_manager import DBManager
-from backend.models.memory_schema import MemoryDocument
+from backend.core.models.store_memory import store_chunks
+from backend.connectors.ingestion.chunker import chunk_text
+from backend.core.services.db_manager import DBManager
+from backend.core.models.memory_schema import MemoryDocument
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

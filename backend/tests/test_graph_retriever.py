@@ -201,8 +201,8 @@ class TestEntityStore(unittest.IsolatedAsyncioTestCase):
     """Unit tests for EntityStore CRUD operations."""
 
     async def test_get_or_create_creates_when_not_exists(self):
-        from backend.entities.store import EntityStore
-        from backend.entities.models import Entity
+        from backend.graph.entities.store import EntityStore
+        from backend.graph.entities.models import Entity
 
         store = EntityStore()
         mock_session = AsyncMock()
@@ -221,8 +221,8 @@ class TestEntityStore(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entity.name, "Bob")
 
     async def test_get_or_create_returns_existing_when_found(self):
-        from backend.entities.store import EntityStore
-        from backend.entities.models import Entity
+        from backend.graph.entities.store import EntityStore
+        from backend.graph.entities.models import Entity
 
         store = EntityStore()
         mock_session = AsyncMock()
@@ -248,14 +248,14 @@ class TestEntityDeduplicator(unittest.TestCase):
     """Tests for cosine similarity based deduplication."""
 
     def test_cosine_identical_vectors(self):
-        from backend.entities.deduplicator import _cosine
+        from backend.graph.entities.deduplicator import _cosine
 
         v = [0.1, 0.5, -0.3, 0.8]
         sim = _cosine(v, v)
         self.assertAlmostEqual(sim, 1.0, places=5)
 
     def test_cosine_orthogonal_vectors(self):
-        from backend.entities.deduplicator import _cosine
+        from backend.graph.entities.deduplicator import _cosine
 
         a = [1.0, 0.0, 0.0]
         b = [0.0, 1.0, 0.0]
@@ -263,7 +263,7 @@ class TestEntityDeduplicator(unittest.TestCase):
         self.assertAlmostEqual(sim, 0.0, places=5)
 
     def test_cosine_zero_vector_returns_zero(self):
-        from backend.entities.deduplicator import _cosine
+        from backend.graph.entities.deduplicator import _cosine
 
         a = [0.0, 0.0, 0.0]
         b = [0.5, 0.3, 0.1]
@@ -275,7 +275,7 @@ class TestEntityDeduplicatorAsync(unittest.IsolatedAsyncioTestCase):
     """Async tests for EntityDeduplicator."""
 
     async def test_resolve_returns_exact_match(self):
-        from backend.entities.deduplicator import EntityDeduplicator
+        from backend.graph.entities.deduplicator import EntityDeduplicator
 
         dedup = EntityDeduplicator()
         mock_session = AsyncMock()

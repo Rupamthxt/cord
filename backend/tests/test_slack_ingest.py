@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, patch
 from datetime import datetime, timezone
 
 from backend.connectors.slack.slack_connector import SlackConnector
-from backend.ingestion.chunker import chunk_text
-from backend.models.store_memory import store_chunks
+from backend.connectors.ingestion.chunker import chunk_text
+from backend.core.models.store_memory import store_chunks
 
 # Set up logging to console
 logging.basicConfig(level=logging.INFO)

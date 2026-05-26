@@ -27,7 +27,7 @@ import logging
 import time
 from typing import List, Optional
 
-from backend.ingestion.entity_extractor import EntityExtractor
+from backend.connectors.ingestion.entity_extractor import EntityExtractor
 from backend.extraction.ollama_client import (
     OllamaClient,
     OllamaTimeoutError,

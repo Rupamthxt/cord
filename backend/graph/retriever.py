@@ -14,13 +14,13 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.entities.models import ChunkEntityRef, Entity, Relationship
-from backend.entities.schema import EntityRead
-from backend.relationships.schema import RelationshipRead
-from backend.entities.store import entity_store
-from backend.relationships.store import relationship_store
+from backend.graph.entities.models import ChunkEntityRef, Entity, Relationship
+from backend.graph.entities.schema import EntityRead
+from backend.graph.relationships.schema import RelationshipRead
+from backend.graph.entities.store import entity_store
+from backend.graph.relationships.store import relationship_store
 from backend.graph.db import get_db_session
-from backend.models.setup_client import client
+from backend.core.models.setup_client import client
 
 logger = logging.getLogger(__name__)
 COLLECTION_NAME = "workspace_memory"

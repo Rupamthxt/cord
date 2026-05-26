@@ -14,11 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.entities.schema import EntityCreate
-from backend.entities.store import entity_store, EntityStore
-from backend.relationships.schema import RelationshipCreate
-from backend.relationships.store import relationship_store, RelationshipStore
-from backend.entities.deduplicator import entity_deduplicator, EntityDeduplicator
+from backend.graph.entities.schema import EntityCreate
+from backend.graph.entities.store import entity_store, EntityStore
+from backend.graph.relationships.schema import RelationshipCreate
+from backend.graph.relationships.store import relationship_store, RelationshipStore
+from backend.graph.entities.deduplicator import entity_deduplicator, EntityDeduplicator
 from backend.extraction.extractor import extractor, OllamaEntityExtractor
 from backend.graph.db import get_db_session
 

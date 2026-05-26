@@ -1,4 +1,4 @@
-from backend.retrieval.search import search
+from backend.intelligence.retrieval.search import search
 
 if __name__ == "__main__":
     results = search(

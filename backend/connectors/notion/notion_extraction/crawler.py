@@ -9,7 +9,7 @@ from backend.connectors.notion.notion_extraction.database_extractor import Datab
 from backend.connectors.notion.notion_models.schemas import (
     Block, BlockType, WorkspaceNode, ExtractionStats
 )
-from backend.models.memory_schema import MemoryDocument
+from backend.core.models.memory_schema import MemoryDocument
 from backend.connectors.notion.notion_utils.logging_config import get_logger
 
 logger = get_logger(__name__)
