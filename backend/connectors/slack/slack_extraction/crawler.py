@@ -101,7 +101,7 @@ class SlackWorkspaceCrawler:
         try:
             return float(ts_str)
         except ValueError:
-            return datetime.now().timestamp()
+            return datetime.now(timezone.utc).timestamp()
 
     def _format_datetime(self, ts_str: str) -> datetime:
         """Convert Slack's string timestamp to a timezone-aware UTC datetime."""

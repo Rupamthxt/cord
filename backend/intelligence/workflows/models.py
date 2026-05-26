@@ -7,7 +7,7 @@ SQLAlchemy 2.0 ORM models for the supervised workflow coordination engine.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     DateTime,
@@ -39,15 +39,15 @@ class Workflow(Base):
     priority: str = Column(String(50), nullable=False, default="medium")
     workspace_id: str | None = Column(String(500), nullable=True, index=True)
     created_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
     metadata_: dict = Column(
         "metadata",

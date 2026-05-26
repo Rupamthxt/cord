@@ -38,23 +38,64 @@ DATABASE_URL: str = os.getenv(
 # Engine
 # ---------------------------------------------------------------------------
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-)
+import asyncio
 
-# ---------------------------------------------------------------------------
-# Session factory
-# ---------------------------------------------------------------------------
+_engines = {}
+_sessionmakers = {}
 
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+def get_engine():
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+        
+    if loop not in _engines:
+        _engines[loop] = create_async_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+    return _engines[loop]
+
+def get_sessionmaker():
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+        
+    if loop not in _sessionmakers:
+        _sessionmakers[loop] = async_sessionmaker(
+            get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _sessionmakers[loop]
+
+class LoopBoundEngineProxy:
+    def __getattr__(self, name):
+        return getattr(get_engine(), name)
+        
+    def __repr__(self):
+        return f"<LoopBoundEngineProxy for {get_engine()}>"
+
+engine = LoopBoundEngineProxy()
+
+class LoopBoundSessionmakerProxy:
+    def __call__(self, *args, **kwargs):
+        return get_sessionmaker()(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(get_sessionmaker(), name)
+
+    def __aenter__(self):
+        return get_sessionmaker().__aenter__()
+
+    def __aexit__(self, exc_type, exc_val, exc_tb):
+        return get_sessionmaker().__aexit__(exc_type, exc_val, exc_tb)
+
+AsyncSessionLocal = LoopBoundSessionmakerProxy()
 
 # ---------------------------------------------------------------------------
 # Declarative base (shared by all ORM models in this package)

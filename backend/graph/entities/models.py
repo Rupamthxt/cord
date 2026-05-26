@@ -13,7 +13,7 @@ Tables:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
@@ -83,15 +83,15 @@ class Entity(Base):
         server_default="{}",
     )
     created_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
     updated_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
     embedding_id: str | None = Column(String(500), nullable=True)
 
@@ -208,7 +208,7 @@ class Relationship(Base):
     confidence: float = Column(Float, nullable=False, default=0.8)
     evidence: str | None = Column(Text, nullable=True)
     source_chunk_id: str | None = Column(String(500), nullable=True)
-    timestamp: datetime | None = Column(DateTime, nullable=True)
+    timestamp: datetime | None = Column(DateTime(timezone=True), nullable=True)
     workspace_id: str | None = Column(String(500), nullable=True, index=True)
 
     __table_args__ = (

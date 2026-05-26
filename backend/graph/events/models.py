@@ -7,7 +7,7 @@ SQLAlchemy 2.0 ORM models for the Cord event memory layer.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     DateTime,
@@ -36,7 +36,7 @@ class Event(Base):
     event_type: str = Column(String(100), nullable=False)
     title: str = Column(String(500), nullable=False)
     description: str | None = Column(Text, nullable=True)
-    timestamp: datetime | None = Column(DateTime, nullable=True)
+    timestamp: datetime | None = Column(DateTime(timezone=True), nullable=True)
     source_chunk_id: str = Column(String(500), nullable=False)
     workspace_id: str | None = Column(String(500), nullable=True, index=True)
     severity: str | None = Column(String(50), nullable=True)
@@ -49,9 +49,9 @@ class Event(Base):
         server_default="{}",
     )
     created_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (
@@ -91,9 +91,9 @@ class EventRelationship(Base):
     confidence: float = Column(Float, nullable=False, default=0.8)
     workspace_id: str | None = Column(String(500), nullable=True, index=True)
     created_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     __table_args__ = (

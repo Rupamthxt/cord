@@ -5,7 +5,7 @@ are correctly enriched with entity and relationship context from PostgreSQL.
 Run with: python -m unittest backend/tests/test_graph_retriever.py
 """
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -61,7 +61,7 @@ class TestGraphAwareRetriever(unittest.IsolatedAsyncioTestCase):
         mock_entity.type = "person"
         mock_entity.description = "Lead engineer"
         mock_entity.workspace_id = "default_workspace"
-        mock_entity.created_at = datetime.utcnow()
+        mock_entity.created_at = datetime.now(timezone.utc)
         mock_entity.aliases_str = ""
         mock_entity.source_chunk_id = chunk_id
         mock_entity.metadata_ = {}
@@ -148,7 +148,7 @@ class TestGraphAwareRetriever(unittest.IsolatedAsyncioTestCase):
         mock_entity.source_chunk_id = None
         mock_entity.metadata_ = {}
         mock_entity.metadata = {}
-        mock_entity.created_at = datetime.utcnow()
+        mock_entity.created_at = datetime.now(timezone.utc)
 
         with patch("backend.graph.retriever.get_db_session") as mock_ctx:
             mock_session = AsyncMock()

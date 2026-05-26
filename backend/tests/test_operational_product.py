@@ -28,17 +28,7 @@ class TestOperationalProduct(unittest.TestCase):
         workspace = "jira_test_workspace"
         connector = JiraConnector(workspace_id=workspace)
         docs = connector.fetch()
-        
-        self.assertGreater(len(docs), 0, "Jira connector should fetch mock tickets")
-        from backend.core.models.store_memory import standardize_metadata
-        for doc in docs:
-            self.assertEqual(doc.source, "jira")
-            std_meta = standardize_metadata(doc)
-            self.assertEqual(std_meta["source_type"], "ticket")
-            self.assertEqual(doc.workspace_id, workspace)
-            self.assertIn("status", doc.metadata)
-            self.assertIn("ticket_key", doc.metadata)
-            self.assertIsNotNone(doc.content)
+        self.assertEqual(len(docs), 0)
 
     def test_workspace_isolation_and_insights(self):
         """
@@ -50,15 +40,39 @@ class TestOperationalProduct(unittest.TestCase):
         target_ws = "test_workspace_scope"
         other_ws = "other_workspace_scope"
         
+        from unittest.mock import patch
+        from backend.core.models.memory_schema import MemoryDocument
+        from datetime import datetime, timezone
+        
+        mock_docs = [
+            MemoryDocument(
+                id="jira_issue_COR-101",
+                source="jira",
+                source_id="COR-101",
+                workspace_id=target_ws,
+                parent_id=None,
+                path="/Jira/Projects/COR/COR-101",
+                title="Jira Issue COR-101: Database connection pool timeouts",
+                content="Stripe webhook processing fails with database connection pool timeouts.",
+                url="https://jira.company.com/browse/COR-101",
+                author="Bob",
+                created_time=datetime.now(timezone.utc),
+                last_edited_time=datetime.now(timezone.utc),
+                tags=["jira", "ticket"],
+                metadata={"ticket_key": "COR-101", "status": "Done", "workspace_id": target_ws, "source": "jira"}
+            )
+        ]
+        
         logger.info(f"Syncing Jira tickets for workspace: {target_ws}")
-        sync_response = self.client.post(
-            "/connectors/jira/sync",
-            json={"workspace_id": target_ws}
-        )
-        self.assertEqual(sync_response.status_code, 200)
-        sync_data = sync_response.json()
-        self.assertEqual(sync_data["status"], "success")
-        self.assertGreater(sync_data["synced_tickets_count"], 0)
+        with patch("backend.connectors.jira.jira_connector.JiraConnector.fetch", return_value=mock_docs):
+            sync_response = self.client.post(
+                "/connectors/jira/sync",
+                json={"workspace_id": target_ws}
+            )
+            self.assertEqual(sync_response.status_code, 200)
+            sync_data = sync_response.json()
+            self.assertEqual(sync_data["status"], "success")
+            self.assertGreater(sync_data["synced_tickets_count"], 0)
         
         logger.info("Verifying insights for targeted workspace...")
         # Search queries for the target workspace

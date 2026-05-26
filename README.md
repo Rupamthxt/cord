@@ -11,59 +11,59 @@ Cord uses a **multi-stage hybrid reasoning pipeline** to dynamically resolve tem
 ```mermaid
 graph TD
     %% Ingestion Sources
-    subgraph Ingestion Layer
-        Slack[Slack Connector]
-        Notion[Notion Connector]
+    subgraph IngestionLayer ["Ingestion Layer"]
+        Slack["Slack Connector"]
+        Notion["Notion Connector"]
     end
 
     %% Ingestion Pipeline
-    subgraph Core Processing Pipeline
-        Normalize[Normalization Pipeline]
-        Chunker[Chunking & Standarization]
-        Embeddings[Embedding Generation - BGE-Micro]
-        EntityExt[Pattern Entity Extractor]
+    subgraph CoreProcessing ["Core Processing Pipeline"]
+        Normalize["Normalization Pipeline"]
+        Chunker["Chunking & Standardization"]
+        Embeddings["Embedding Generation - BGE-Micro"]
+        EntityExt["Pattern Entity Extractor"]
     end
 
     %% Storage
-    subgraph Storage Layer
-        Qdrant[(Qdrant Vector DB)]
-        SQLite[(SQLite Relational DB)]
+    subgraph StorageLayer ["Storage Layer"]
+        Qdrant[("Qdrant Vector DB")]
+        SQLite[("SQLite Relational DB")]
     end
 
     %% Background Processing
-    subgraph Background Processing [Background Worker Thread]
-        CorrEngine[Correlation Engine]
-        EvExtractor[Event Extractor]
-        PatDetector[Pattern Detector]
+    subgraph BackgroundProcessing ["Background Worker Thread"]
+        CorrEngine["Correlation Engine"]
+        EvExtractor["Event Extractor"]
+        PatDetector["Pattern Detector"]
     end
 
     %% Retrieval & Reasoning Pipeline
-    subgraph Reasoning & Intelligence Pipelines
-        QTemporal[Query Temporal Parser]
-        QEntities[Query Entity Parser]
-        Ranker[Multi-Dimensional Ranker]
-        Pipeline[Reasoning Pipeline Executor]
+    subgraph ReasoningPipelines ["Reasoning & Intelligence Pipelines"]
+        QTemporal["Query Temporal Parser"]
+        QEntities["Query Entity Parser"]
+        Ranker["Multi-Dimensional Ranker"]
+        Pipeline["Reasoning Pipeline Executor"]
         
-        QClassifier[Query Classifier]
-        EvAggregator[Evidence Aggregator]
-        RCAnalyzer[Root Cause Analyzer]
-        InsightSynth[Insight Synthesizer]
-        IntelPipeline[Intel Pipeline Orchestrator]
+        QClassifier["Query Classifier"]
+        EvAggregator["Evidence Aggregator"]
+        RCAnalyzer["Root Cause Analyzer"]
+        InsightSynth["Insight Synthesizer"]
+        IntelPipeline["Intel Pipeline Orchestrator"]
     end
 
     %% APIs
-    subgraph FastAPI Endpoints
-        API_Search[POST /search]
-        API_Events[POST /events/search]
-        API_Timeline[POST /timeline/search]
-        API_Corr[POST /correlations/search]
-        API_Patterns[POST /patterns/search]
+    subgraph FastApiEndpoints ["FastAPI Endpoints"]
+        API_Search["POST /search"]
+        API_Events["POST /events/search"]
+        API_Timeline["POST /timeline/search"]
+        API_Corr["POST /correlations/search"]
+        API_Patterns["POST /patterns/search"]
         
-        API_Intel_Issues[POST /insights/issues]
-        API_Intel_Trends[POST /insights/trends]
-        API_Intel_Root[POST /insights/root-causes]
-        API_Intel_Esc[POST /insights/escalations]
-        API_Intel_Bot[POST /insights/bottlenecks]
+        API_Intel_Issues["POST /insights/issues"]
+        API_Intel_Trends["POST /insights/trends"]
+        API_Intel_Root["POST /insights/root-causes"]
+        API_Intel_Esc["POST /insights/escalations"]
+        API_Intel_Bot["POST /insights/bottlenecks"]
     end
 
     %% Ingestion Flow
@@ -76,7 +76,7 @@ graph TD
     EntityExt --> Qdrant
 
     %% Background Hooks
-    Chunker -. Trigger Background .-> Background Processing
+    Chunker -. "Trigger Background" .-> BackgroundProcessing
     CorrEngine --> SQLite
     EvExtractor --> SQLite
     EvExtractor --> Qdrant
@@ -84,9 +84,9 @@ graph TD
 
     %% Search Flow
     API_Search --> Pipeline
-    API_Events --> API_Events_Query{Query?}
-    API_Events_Query -- Semantics --> Qdrant
-    API_Events_Query -- Database --> SQLite
+    API_Events --> API_Events_Query{"Query?"}
+    API_Events_Query -- "Semantics" --> Qdrant
+    API_Events_Query -- "Database" --> SQLite
     API_Timeline --> Pipeline
     API_Timeline --> SQLite
     API_Corr --> Pipeline

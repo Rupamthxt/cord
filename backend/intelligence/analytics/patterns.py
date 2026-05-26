@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy import select
@@ -249,7 +249,7 @@ class PatternDetector:
             "temporal_clusters": temporal_clusters,
             "incident_frequencies": incident_frequencies,
             "deployment_incidents": deployment_incidents,
-            "generated_at": datetime.now(),
+            "generated_at": datetime.now(timezone.utc),
         }
 
 

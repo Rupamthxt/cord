@@ -111,6 +111,51 @@ class DBManager:
                     related_events TEXT
                 )
             """)
+
+            # 7. Authentication Users
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE,
+                    password_hash TEXT,
+                    created_at TEXT
+                )
+            """)
+
+            # 8. Workspaces
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS workspaces (
+                    workspace_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    owner_id TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY(owner_id) REFERENCES users(user_id)
+                )
+            """)
+
+            # 9. User-Workspace mappings
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_workspaces (
+                    user_id TEXT,
+                    workspace_id TEXT,
+                    PRIMARY KEY(user_id, workspace_id),
+                    FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                    FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE CASCADE
+                )
+            """)
+
+            # 10. Connector Credentials
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS connector_credentials (
+                    workspace_id TEXT,
+                    connector_type TEXT,
+                    credentials_json TEXT,
+                    status TEXT,
+                    updated_at TEXT,
+                    PRIMARY KEY(workspace_id, connector_type),
+                    FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE CASCADE
+                )
+            """)
         # Ensure workspace columns exist (migration fallbacks)
         for tbl in ["events", "correlations", "patterns"]:
             try:
@@ -372,4 +417,92 @@ class DBManager:
                 }
                 for r in rows
             ]
+
+    # --- Authentication & Workspace Credentials ---
+    def create_user(self, email: str, password_hash: str) -> Dict[str, Any]:
+        import uuid
+        from datetime import datetime, timezone
+        user_id = str(uuid.uuid4())
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO users (user_id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                (user_id, email.lower().strip(), password_hash, created_at)
+            )
+        return {"user_id": user_id, "email": email, "created_at": created_at}
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),)).fetchone()
+            if not row:
+                return None
+            return {
+                "user_id": row["user_id"],
+                "email": row["email"],
+                "password_hash": row["password_hash"],
+                "created_at": row["created_at"]
+            }
+
+    def create_workspace(self, workspace_id: str, name: str, owner_id: str) -> Dict[str, Any]:
+        from datetime import datetime, timezone
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self.get_connection() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO workspaces (workspace_id, name, owner_id, created_at) VALUES (?, ?, ?, ?)",
+                (workspace_id.strip(), name.strip(), owner_id, created_at)
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO user_workspaces (user_id, workspace_id) VALUES (?, ?)",
+                (owner_id, workspace_id.strip())
+            )
+        return {"workspace_id": workspace_id, "name": name, "owner_id": owner_id, "created_at": created_at}
+
+    def get_user_workspaces(self, user_id: str) -> List[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT w.* FROM workspaces w
+                JOIN user_workspaces uw ON w.workspace_id = uw.workspace_id
+                WHERE uw.user_id = ?
+                """,
+                (user_id,)
+            ).fetchall()
+            return [
+                {
+                    "workspace_id": r["workspace_id"],
+                    "name": r["name"],
+                    "owner_id": r["owner_id"],
+                    "created_at": r["created_at"]
+                }
+                for r in rows
+            ]
+
+    def save_connector_credentials(self, workspace_id: str, connector_type: str, credentials_json: str, status: str = "active") -> None:
+        from datetime import datetime, timezone
+        updated_at = datetime.now(timezone.utc).isoformat()
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO connector_credentials (workspace_id, connector_type, credentials_json, status, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (workspace_id, connector_type.lower(), credentials_json, status, updated_at)
+            )
+
+    def get_connector_credentials(self, workspace_id: str, connector_type: str) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM connector_credentials WHERE workspace_id = ? AND connector_type = ?",
+                (workspace_id, connector_type.lower())
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "workspace_id": row["workspace_id"],
+                "connector_type": row["connector_type"],
+                "credentials_json": row["credentials_json"],
+                "status": row["status"],
+                "updated_at": row["updated_at"]
+            }
+
 

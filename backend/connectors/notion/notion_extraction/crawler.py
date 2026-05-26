@@ -2,7 +2,7 @@
 
 import asyncio
 from typing import Dict, Any, Set, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.connectors.notion.notion_extraction.async_client import NotionClientAsync
 from backend.connectors.notion.notion_extraction.block_extractor import BlockExtractor
 from backend.connectors.notion.notion_extraction.database_extractor import DatabaseExtractor
@@ -54,7 +54,7 @@ class NotionWorkspaceCrawler:
         Returns:
             List of normalized MemoryDocument objects ready for downstream processing
         """
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         logger.info("Starting workspace crawl", start_page_id=start_page_id)
         
         try:
@@ -76,7 +76,7 @@ class NotionWorkspaceCrawler:
             self.stats.errors += 1
         
         # Calculate stats
-        duration = (datetime.now() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         self.stats.duration_seconds = duration
         self.stats.total_documents = len(self.documents)
         

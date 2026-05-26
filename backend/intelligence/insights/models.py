@@ -7,7 +7,7 @@ SQLAlchemy 2.0 ORM models for proactive operational insights and anomalies.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     DateTime,
@@ -42,9 +42,9 @@ class Insight(Base):
     evidence: list = Column(JSONB, nullable=False, default=list)
     workspace_id: str | None = Column(String(500), nullable=True, index=True)
     generated_at: datetime = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
     )
     metadata_: dict = Column(
         "metadata",
