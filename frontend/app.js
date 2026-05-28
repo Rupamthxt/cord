@@ -294,10 +294,162 @@ function loadTabContentData() {
 }
 
 // Reset diagnostics UI
+let diagnosticsChatHistory = [];
+
 function resetDiagnosticsUI() {
   document.getElementById('diagnostics-empty').style.display = 'flex';
   document.getElementById('diagnostics-results').style.display = 'none';
   document.getElementById('diagnostics-loader').style.display = 'none';
+  
+  // Reset conversational chat state and DOM
+  diagnosticsChatHistory = [];
+  const chatHistoryContainer = document.getElementById('diagnostics-chat-history');
+  if (chatHistoryContainer) {
+    chatHistoryContainer.innerHTML = `
+      <div class="chat-message assistant">
+        <div class="chat-message-bubble">
+          Hello! I am your CORD Diagnostics Assistant. Ask me any follow-up questions about the system state or retrieved evidence above.
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Chat input handlers
+function handleChatInputKey(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    sendChatDiagnosticsMessage();
+  }
+}
+
+async function sendChatDiagnosticsMessage() {
+  const inputEl = document.getElementById('diagnostics-chat-input');
+  const chatHistoryEl = document.getElementById('diagnostics-chat-history');
+  const sendBtn = document.getElementById('btn-submit-chat');
+  
+  const text = inputEl.value.trim();
+  if (!text) return;
+  
+  // Lock fields
+  inputEl.disabled = true;
+  sendBtn.disabled = true;
+  
+  // Render user prompt bubble
+  const userMsgDiv = document.createElement('div');
+  userMsgDiv.className = 'chat-message user';
+  userMsgDiv.innerHTML = `
+    <div class="chat-message-bubble">${escapeHtml(text)}</div>
+    <div class="chat-message-meta">You</div>
+  `;
+  chatHistoryEl.appendChild(userMsgDiv);
+  chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  
+  inputEl.value = '';
+  logConsole(`Sending follow-up diagnostics query: "${text}"`, 'info');
+  
+  // Add loading spinner bubble
+  const assistantLoadingDiv = document.createElement('div');
+  assistantLoadingDiv.className = 'chat-message assistant loading-bubble';
+  assistantLoadingDiv.innerHTML = `
+    <div class="chat-message-bubble">
+      <span class="spinner" style="margin-bottom: 0; width: 12px; height: 12px; border-width: 1px; vertical-align: middle; display: inline-block;"></span>
+      <span style="margin-left: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Thinking...</span>
+    </div>
+  `;
+  chatHistoryEl.appendChild(assistantLoadingDiv);
+  chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  
+  try {
+    const response = await fetch('/insights/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        query: text,
+        workspace_id: activeWorkspaceId,
+        history: diagnosticsChatHistory,
+        limit: 3
+      })
+    });
+    
+    if (!response.ok) throw new Error(`HTTP Error Status ${response.status}`);
+    
+    const data = await response.json();
+    assistantLoadingDiv.remove();
+    
+    // Render assistant response
+    const assistantMsgDiv = document.createElement('div');
+    assistantMsgDiv.className = 'chat-message assistant';
+    
+    const replyText = data.response || 'No response returned from the diagnostics assistant.';
+    
+    // Add citation source badges if available
+    let sourceBadges = '';
+    const chunks = (data.evidence && data.evidence.chunks) || [];
+    if (chunks.length > 0) {
+      const sourceNames = [...new Set(chunks.map(c => c.source || 'doc'))];
+      sourceBadges = `<div style="margin-top: 0.5rem; display: flex; gap: 0.25rem; flex-wrap: wrap;">
+        ${sourceNames.map(name => `<span class="badge" style="font-size: 0.6rem;">${name.toUpperCase()}</span>`).join('')}
+      </div>`;
+    }
+    
+    assistantMsgDiv.innerHTML = `
+      <div class="chat-message-bubble">
+        ${formatChatMessageText(replyText)}
+        ${sourceBadges}
+      </div>
+      <div class="chat-message-meta">CORD Assistant</div>
+    `;
+    chatHistoryEl.appendChild(assistantMsgDiv);
+    chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+    
+    // Append to conversation history
+    diagnosticsChatHistory.push({ role: 'user', content: text });
+    diagnosticsChatHistory.push({ role: 'assistant', content: replyText });
+    
+    logConsole('Diagnostics chat assistant replied successfully.', 'success');
+  } catch (err) {
+    assistantLoadingDiv.remove();
+    logConsole(`Diagnostics chat assistant query failed: ${err.message}`, 'error');
+    
+    const errorMsgDiv = document.createElement('div');
+    errorMsgDiv.className = 'chat-message assistant';
+    errorMsgDiv.innerHTML = `
+      <div class="chat-message-bubble" style="color: var(--accent-red); border-color: rgba(239, 68, 68, 0.2); background-color: rgba(239, 68, 68, 0.05);">
+        Failed to get response: ${err.message}
+      </div>
+      <div class="chat-message-meta">System Error</div>
+    `;
+    chatHistoryEl.appendChild(errorMsgDiv);
+    chatHistoryEl.scrollTop = chatHistoryEl.scrollHeight;
+  } finally {
+    inputEl.disabled = false;
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+}
+
+// Utility formatting helpers
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function formatChatMessageText(text) {
+  let formatted = escapeHtml(text);
+  formatted = formatted.replace(/\n/g, '<br>');
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  formatted = formatted.replace(/`(.*?)`/g, '<code style="font-family: var(--font-mono); font-size: 0.85rem; background: rgba(0,0,0,0.15); padding: 0.1rem 0.3rem; border-radius: 3px;">$1</code>');
+  return formatted;
 }
 
 // Populate search input
@@ -400,7 +552,17 @@ function renderDiagnosticResults(data, duration, endpoint) {
   // Render Timeline Trails
   const timelineList = document.getElementById('timeline-events-list');
   timelineList.innerHTML = '';
-  const events = (data.evidence && data.evidence.events) || [];
+  let events = (data.evidence && data.evidence.events) || [];
+  
+  // Deduplicate events to keep timeline clean
+  const seenEvents = new Set();
+  events = events.filter(ev => {
+    const key = `${ev.title}_${ev.summary || ev.description || ''}`;
+    if (seenEvents.has(key)) return false;
+    seenEvents.add(key);
+    return true;
+  });
+
   if (events.length === 0) {
     timelineList.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; padding: 1rem 0;">No chronological events traced.</div>';
   } else {
@@ -419,7 +581,17 @@ function renderDiagnosticResults(data, duration, endpoint) {
   // Render Correlations Links
   const correlationsList = document.getElementById('correlations-links-list');
   correlationsList.innerHTML = '';
-  const correlations = (data.evidence && data.evidence.correlations) || [];
+  let correlations = (data.evidence && data.evidence.correlations) || [];
+  
+  // Deduplicate correlations by type & reason details
+  const seenCorrelations = new Set();
+  correlations = correlations.filter(corr => {
+    const key = `${corr.type || corr.correlation_type}_${corr.reason || ''}`;
+    if (seenCorrelations.has(key)) return false;
+    seenCorrelations.add(key);
+    return true;
+  });
+
   if (correlations.length === 0) {
     correlationsList.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; padding: 1rem 0;">No relational correlation links detected.</div>';
   } else {

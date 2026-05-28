@@ -24,7 +24,7 @@ class OperationalIntelligencePipeline:
         self.analyzer = RootCauseAnalyzer(db_manager=self.db)
         self.synthesizer = InsightSynthesizer()
 
-    def execute(self, query: str, limit: int = 10, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    async def execute(self, query: str, limit: int = 10, workspace_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Runs the full operational intelligence workflow.
         """
@@ -46,7 +46,7 @@ class OperationalIntelligencePipeline:
         )
 
         # Stage 5: Insight Synthesis
-        insight = self.synthesizer.synthesize(
+        insight = await self.synthesizer.synthesize(
             query=query,
             query_classification=classification,
             aggregated_evidence=evidence,

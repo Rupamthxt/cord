@@ -155,40 +155,66 @@
 
             <!-- Diagnostic Results Wrapper -->
             <div id="diagnostics-results" style="display: none;">
-              <!-- 1. Synth Report -->
-              <div class="flat-card result-summary-card">
-                <div class="result-header">
-                  <div class="result-meta">
-                    <span class="badge" id="res-classification">root_cause_analysis</span>
-                    <span class="confidence-container">
-                      Confidence: <strong id="res-confidence-pct">0%</strong>
-                    </span>
+              <div class="diagnostics-dashboard-grid">
+                <!-- Left Column: Report Summary and Evidence Trails -->
+                <div class="diagnostics-main-col">
+                  <!-- 1. Synth Report -->
+                  <div class="flat-card result-summary-card">
+                    <div class="result-header">
+                      <div class="result-meta">
+                        <span class="badge" id="res-classification">root_cause_analysis</span>
+                        <span class="confidence-container">
+                          Confidence: <strong id="res-confidence-pct">0%</strong>
+                        </span>
+                      </div>
+                      <span id="res-execution-time" class="time-elapsed">0.00s</span>
+                    </div>
+                    <div class="summary-text" id="res-summary"></div>
+                    <div class="summary-explanation" id="res-confidence-explanation"></div>
                   </div>
-                  <span id="res-execution-time" class="time-elapsed">0.00s</span>
-                </div>
-                <div class="summary-text" id="res-summary"></div>
-                <div class="summary-explanation" id="res-confidence-explanation"></div>
-              </div>
 
-              <!-- 2. Split events and correlations -->
-              <div class="results-split-grid">
-                <!-- Timeline events -->
-                <div class="flat-card">
-                  <h3 class="panel-title">Timeline Tracing</h3>
-                  <div class="timeline-trail" id="timeline-events-list"></div>
+                  <!-- 2. Split events and correlations -->
+                  <div class="results-split-grid">
+                    <!-- Timeline events -->
+                    <div class="flat-card">
+                      <h3 class="panel-title">Timeline Tracing</h3>
+                      <div class="timeline-trail" id="timeline-events-list"></div>
+                    </div>
+
+                    <!-- SQLite Correlations -->
+                    <div class="flat-card">
+                      <h3 class="panel-title">Cross-Source Relational Links</h3>
+                      <div class="correlation-trail" id="correlations-links-list"></div>
+                    </div>
+                  </div>
+
+                  <!-- 3. Chunk documents -->
+                  <div class="flat-card" style="margin-bottom: 0;">
+                    <h3 class="panel-title">Supporting Documents (Qdrant Vector Chunks)</h3>
+                    <div class="evidence-list" id="evidence-chunks-list"></div>
+                  </div>
                 </div>
 
-                <!-- SQLite Correlations -->
-                <div class="flat-card">
-                  <h3 class="panel-title">Cross-Source Relational Links</h3>
-                  <div class="correlation-trail" id="correlations-links-list"></div>
+                <!-- Right Column: Interactive Follow-up Chat -->
+                <div class="diagnostics-chat-col">
+                  <div class="flat-card diagnostics-chat-card" style="margin-top: 0; margin-bottom: 0;">
+                    <h3 class="panel-title">Interactive Follow-up Chat</h3>
+                    <p class="panel-desc">Ask follow-up questions over historical timeline data and supporting documentation.</p>
+                    
+                    <div class="chat-conversation-container" id="diagnostics-chat-history">
+                      <div class="chat-message assistant">
+                        <div class="chat-message-bubble">
+                          Hello! I am your CORD Diagnostics Assistant. Ask me any follow-up questions about the system state or retrieved evidence above.
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="chat-input-row">
+                      <input type="text" id="diagnostics-chat-input" placeholder="e.g., Who approved the release? What database configs changed?" onkeydown="handleChatInputKey(event)">
+                      <button id="btn-submit-chat" onclick="sendChatDiagnosticsMessage()" class="btn btn-primary">Send</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <!-- 3. Chunk documents -->
-              <div class="flat-card">
-                <h3 class="panel-title">Supporting Documents (Qdrant Vector Chunks)</h3>
-                <div class="evidence-list" id="evidence-chunks-list"></div>
               </div>
             </div>
           </div>

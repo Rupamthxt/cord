@@ -34,7 +34,28 @@ class EvidenceAggregator:
         query_extraction = extractor.extract(query)
         query_entities = query_extraction["entities"]
         
-        # 2. Retrieve chunks from standard reasoning search with workspace isolation
+        # 2. Autodiscover workspace scope if not explicitly passed
+        if not workspace_id:
+            try:
+                from backend.core.embeddings.model import get_embedding
+                query_emb = get_embedding(query)
+                q_res = client.query_points(
+                    collection_name="workspace_memory",
+                    query=query_emb,
+                    limit=5
+                )
+                ws_counts = {}
+                for p in (q_res.points or []):
+                    ws = (p.payload or {}).get("workspace_id")
+                    if ws:
+                        ws_counts[ws] = ws_counts.get(ws, 0) + 1
+                if ws_counts:
+                    workspace_id = max(ws_counts, key=ws_counts.get)
+                    logger.info(f"Auto-discovered workspace scope: '{workspace_id}' based on entity payload correlation")
+            except Exception as e:
+                logger.debug(f"Auto-discovery workspace lookup failed: {e}")
+
+        # 3. Retrieve chunks from standard reasoning search with workspace isolation
         search_res = search(query=query, limit=limit * 2, workspace_id=workspace_id)
         raw_chunks = search_res.get("results", [])
 

@@ -156,6 +156,18 @@ class DBManager:
                     FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE CASCADE
                 )
             """)
+
+            # 11. Webhook Events Log
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS webhook_events (
+                    webhook_event_id TEXT PRIMARY KEY,
+                    source TEXT,
+                    payload TEXT,
+                    received_at TEXT,
+                    workspace_id TEXT,
+                    FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE CASCADE
+                )
+            """)
         # Ensure workspace columns exist (migration fallbacks)
         for tbl in ["events", "correlations", "patterns"]:
             try:
@@ -511,5 +523,38 @@ class DBManager:
                 "status": row["status"],
                 "updated_at": row["updated_at"]
             }
+
+    def add_webhook_event(self, webhook_event_id: str, source: str, payload: str, received_at: str, workspace_id: str) -> None:
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO webhook_events (webhook_event_id, source, payload, received_at, workspace_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (webhook_event_id, source, payload, received_at, workspace_id)
+            )
+
+    def get_webhook_events(self, workspace_id: str, source: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            if source:
+                rows = conn.execute(
+                    "SELECT * FROM webhook_events WHERE workspace_id = ? AND source = ? ORDER BY received_at DESC",
+                    (workspace_id, source)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM webhook_events WHERE workspace_id = ? ORDER BY received_at DESC",
+                    (workspace_id,)
+                ).fetchall()
+            
+            return [
+                {
+                    "webhook_event_id": r["webhook_event_id"],
+                    "source": r["source"],
+                    "payload": r["payload"],
+                    "received_at": r["received_at"],
+                    "workspace_id": r["workspace_id"]
+                } for r in rows
+            ]
 
 

@@ -46,6 +46,18 @@ app.include_router(pilot_router)
 from backend.api.auth_router import router as auth_router
 app.include_router(auth_router)
 
+from backend.api.webhooks import router as webhooks_router
+app.include_router(webhooks_router)
+
+from backend.api.chat import router as chat_router
+app.include_router(chat_router)
+
+from backend.api.actions import router as actions_router
+app.include_router(actions_router)
+
+from backend.api.oauth import router as oauth_router
+app.include_router(oauth_router)
+
 # Mount static files from root-level frontend directory
 
 from fastapi.staticfiles import StaticFiles
@@ -477,7 +489,7 @@ async def get_operational_issues_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Operational issues insight search failed: {e}", exc_info=True)
@@ -492,7 +504,7 @@ async def get_deployments_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Deployments insight search failed: {e}", exc_info=True)
@@ -507,7 +519,7 @@ async def get_incidents_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Incidents insight search failed: {e}", exc_info=True)
@@ -522,7 +534,7 @@ async def get_issues_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Issues insight search failed: {e}", exc_info=True)
@@ -537,7 +549,7 @@ async def get_trends_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Trends insight search failed: {e}", exc_info=True)
@@ -552,7 +564,7 @@ async def get_root_causes_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Root causes insight search failed: {e}", exc_info=True)
@@ -567,7 +579,7 @@ async def get_escalations_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Escalations insight search failed: {e}", exc_info=True)
@@ -582,7 +594,7 @@ async def get_bottlenecks_insights(body: InsightsQueryRequest):
     try:
         from backend.intelligence.pipeline import OperationalIntelligencePipeline
         pipeline = OperationalIntelligencePipeline()
-        res = pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
+        res = await pipeline.execute(query=body.query, limit=body.limit, workspace_id=body.workspace_id)
         return res
     except Exception as e:
         logger.error(f"Bottlenecks insight search failed: {e}", exc_info=True)
