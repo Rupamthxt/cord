@@ -12,34 +12,6 @@ from backend.intelligence.workflows.models import Workflow
 logger = logging.getLogger(__name__)
 
 
-class SQLiteEventAdapter:
-    """Adapts local SQLite event dictionaries to look like SQLAlchemy Event models."""
-    def __init__(self, d: dict):
-        self.id = d.get("event_id") or d.get("id")
-        self.title = d.get("title") or ""
-        ts = d.get("timestamp")
-        if isinstance(ts, str):
-            try:
-                clean_ts = ts.replace("Z", "+00:00")
-                self.timestamp = datetime.fromisoformat(clean_ts)
-            except ValueError:
-                self.timestamp = datetime.now(timezone.utc)
-        elif isinstance(ts, datetime):
-            self.timestamp = ts
-        else:
-            self.timestamp = datetime.now(timezone.utc)
-            
-        self.description = d.get("summary") or d.get("description") or ""
-        self.event_type = d.get("event_type") or "incident"
-        self.severity = d.get("severity") or "medium"
-        self.confidence = d.get("confidence") or 0.8
-        self.metadata_ = {
-            "source_refs": d.get("source_refs") or [],
-            "related_teams": d.get("related_teams") or []
-        }
-        self.workspace_id = d.get("workspace_id")
-
-
 class IssueAnalyzer:
     """
     Core engine for Recurring Operational Issue Intelligence.
@@ -227,35 +199,6 @@ class IssueAnalyzer:
                     }
                 })
 
-        # SQLite fallback if no database escalations found (e.g. PG is down)
-        if not escalations:
-            try:
-                from backend.core.services.db_manager import DBManager
-                db = DBManager()
-                sqlite_events = db.get_timeline(limit=100, workspace_id=workspace_id)
-                # Look for escalation events or incidents
-                for ev in sqlite_events:
-                    if ev.get("event_type") == "escalation" or "escalat" in ev.get("title", "").lower():
-                        escalations.append({
-                            "id": ev["event_id"],
-                            "title": ev["title"],
-                            "incident_type": "escalation",
-                            "priority": "high",
-                            "current_state": "open",
-                            "escalation_route": [
-                                {"step": 1, "role": "Assignee", "duration_minutes": 30, "timestamp": ev["timestamp"]}
-                            ],
-                            "total_triage_minutes": 30,
-                            "bottleneck_identified": "Triage route processed under SQLite fallback",
-                            "confidence_diagnostics": {
-                                "score": 0.80,
-                                "factors_positive": ["Escalation logged in SQLite database"],
-                                "factors_negative": []
-                            }
-                        })
-            except Exception as sqle:
-                logger.warning(f"Failed to query SQLite for workflow fallbacks: {sqle}")
-
         return escalations
 
     async def analyze_incidents(
@@ -319,9 +262,7 @@ class IssueAnalyzer:
         return timeline
 
     async def _fetch_events(self, session: Any, workspace_id: str, now: datetime, days: int) -> List[Any]:
-        # Try fetching from PostgreSQL first
-        pg_events = []
-        pg_success = False
+        # Fetch from PostgreSQL
         try:
             start_time = now - timedelta(days=days)
             stmt = select(Event).where(
@@ -329,32 +270,9 @@ class IssueAnalyzer:
                 Event.timestamp >= start_time
             ).order_by(Event.timestamp.desc())
             res = await session.execute(stmt)
-            pg_events = list(res.scalars().all())
-            pg_success = True
+            return list(res.scalars().all())
         except Exception as e:
-            logger.warning(f"PostgreSQL fetch events failed, trying SQLite fallback: {e}")
-            pg_success = False
-
-        if pg_success and pg_events:
-            return pg_events
-
-        # Fallback to SQLite
-        try:
-            from backend.core.services.db_manager import DBManager
-            db = DBManager()
-            start_time = now - timedelta(days=days)
-            sqlite_raw = db.get_timeline(
-                start_time=start_time.isoformat(),
-                limit=200,
-                workspace_id=workspace_id
-            )
-            
-            adapters = []
-            for d in sqlite_raw:
-                adapters.append(SQLiteEventAdapter(d))
-            return adapters
-        except Exception as sqle:
-            logger.error(f"SQLite event fetch failed: {sqle}")
+            logger.error(f"PostgreSQL fetch events failed: {e}", exc_info=True)
             return []
 
     async def _fetch_insights(self, session: Any, workspace_id: str) -> List[Insight]:

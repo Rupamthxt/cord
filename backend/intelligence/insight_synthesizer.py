@@ -39,10 +39,24 @@ class InsightSynthesizer:
                         primary_trigger = ev["title"]
                         break
             
-            summary = (
-                f"Analysis of query '{query}' indicates a possible sequence chain. "
-                f"The primary initial trigger appears related to '{primary_trigger}'."
-            )
+            if primary_trigger != "unknown":
+                summary = (
+                    f"Analysis of query '{query}' indicates a possible sequence chain. "
+                    f"The primary initial trigger appears related to '{primary_trigger}'."
+                )
+            elif chunks:
+                top_chunk = chunks[0]
+                chunk_excerpt = top_chunk.get("content", "")
+                excerpt_len = min(800, len(chunk_excerpt))
+                clean_excerpt = " ".join(chunk_excerpt[:excerpt_len].strip().split())
+                if len(chunk_excerpt) > excerpt_len:
+                    clean_excerpt += "..."
+                summary = clean_excerpt
+            else:
+                summary = (
+                    f"Analysis of query '{query}' indicates a possible sequence chain. "
+                    f"The primary initial trigger appears related to 'unknown'."
+                )
         elif query_type == "recurring_issue":
             problem_entity = "unknown"
             if patterns:

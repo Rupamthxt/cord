@@ -15,10 +15,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize PostgreSQL database schema on startup
+    try:
+        from backend.graph.db import init_db
+        await init_db()
+    except Exception as e:
+        logger.error(f"Failed to auto-migrate PostgreSQL database on startup: {e}", exc_info=True)
+    yield
+
 app = FastAPI(
     title="Organizational Memory & Operational Intelligence API",
     description="Backend service providing metadata-aware semantic retrieval, entity alignment, and hierarchy search.",
-    version="1.1.0"
+    version="1.1.0",
+    lifespan=lifespan
 )
 
 from backend.graph.router import router as graph_router
@@ -235,13 +248,43 @@ async def search_events(body: EventsSearchRequest):
                 })
             return {"query": body.query, "events": events}
         else:
-            from backend.core.services.db_manager import DBManager
-            db = DBManager()
-            events = db.get_timeline(
-                start_time=body.start_time,
-                end_time=body.end_time,
-                limit=body.limit
-            )
+            # Query PostgreSQL instead of SQLite
+            from backend.graph.db import get_sessionmaker
+            from backend.graph.events.models import Event
+            from sqlalchemy import select
+            
+            async with get_sessionmaker()() as session:
+                stmt = select(Event)
+                if body.event_type:
+                    stmt = stmt.where(Event.event_type == body.event_type)
+                if body.start_time:
+                    try:
+                        st = datetime.fromisoformat(body.start_time.replace("Z", "+00:00"))
+                        stmt = stmt.where(Event.timestamp >= st)
+                    except ValueError:
+                        pass
+                if body.end_time:
+                    try:
+                        et = datetime.fromisoformat(body.end_time.replace("Z", "+00:00"))
+                        stmt = stmt.where(Event.timestamp <= et)
+                    except ValueError:
+                        pass
+                stmt = stmt.order_by(Event.timestamp.desc()).limit(body.limit)
+                res = await session.execute(stmt)
+                pg_events = list(res.scalars().all())
+                
+            events = []
+            for ev in pg_events:
+                events.append({
+                    "event_id": str(ev.id),
+                    "title": ev.title,
+                    "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+                    "entities": ev.metadata_.get("entities", []) if ev.metadata_ else [],
+                    "source_refs": [ev.source_chunk_id] if ev.source_chunk_id else [],
+                    "summary": ev.description or "",
+                    "event_type": ev.event_type,
+                    "related_teams": ev.metadata_.get("related_teams", []) if ev.metadata_ else []
+                })
             return {"events": events}
     except Exception as e:
         logger.error(f"Events search failed: {e}", exc_info=True)

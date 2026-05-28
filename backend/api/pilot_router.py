@@ -195,14 +195,7 @@ async def evaluate_operational_intelligence(body: PilotBaseRequest):
             logger.warning(f"Failed to query PostgreSQL event counts for evaluation: {db_err}")
             pg_success = False
 
-        if not pg_success or events_count == 0:
-            try:
-                from backend.core.services.db_manager import DBManager
-                db = DBManager()
-                sqlite_events = db.get_timeline(limit=500, workspace_id=ws)
-                events_count = len(sqlite_events)
-            except Exception as sqle:
-                logger.warning(f"Failed to query SQLite event counts for evaluation: {sqle}")
+
 
         if events_count == 0:
             precision = 0.0

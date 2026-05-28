@@ -65,7 +65,7 @@ class OllamaClient:
 
     BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
-    TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "30"))
+    TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
     # ------------------------------------------------------------------
     # Core generate

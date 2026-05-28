@@ -366,20 +366,28 @@ function renderDiagnosticResults(data, duration, endpoint) {
   
   // Render Summary Report
   const classBadge = document.getElementById('res-classification');
-  classBadge.textContent = data.query_classification || data.classification || 'analysis';
+  const rawClass = data.query_type || 
+                   (data.query_classification && typeof data.query_classification === 'object' ? data.query_classification.query_type : data.query_classification) || 
+                   (data.classification && typeof data.classification === 'object' ? data.classification.query_type : data.classification) || 
+                   'analysis';
+  classBadge.textContent = rawClass;
   
   const durationText = document.getElementById('res-execution-time');
   durationText.textContent = `Time: ${duration}s`;
   
   const scorePct = document.getElementById('res-confidence-pct');
-  const confidenceScore = data.confidence || (data.insight && data.insight.confidence) || 0.85;
+  const confidenceScore = data.confidence || (data.insight && (data.insight.confidence_score || data.insight.confidence)) || 0.85;
   scorePct.textContent = `${Math.round(confidenceScore * 100)}%`;
   
   const summaryText = document.getElementById('res-summary');
-  summaryText.innerHTML = data.insight || data.summary || data.explanation || 'No summary text returned.';
+  const summaryVal = (data.insight && typeof data.insight === 'object') ? data.insight.summary : (data.insight || data.summary || data.explanation || 'No summary text returned.');
+  summaryText.innerHTML = summaryVal;
   
   const explanationText = document.getElementById('res-confidence-explanation');
-  if (data.diagnostics && data.diagnostics.explanation) {
+  if (data.insight && data.insight.confidence_explanation) {
+    explanationText.textContent = data.insight.confidence_explanation;
+    explanationText.style.display = 'block';
+  } else if (data.diagnostics && data.diagnostics.explanation) {
     explanationText.textContent = `Reasoning Trace: ${data.diagnostics.explanation}`;
     explanationText.style.display = 'block';
   } else if (data.diagnostics && data.diagnostics.confidence_factors) {

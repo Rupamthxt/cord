@@ -159,11 +159,18 @@ class DBManager:
         # Ensure workspace columns exist (migration fallbacks)
         for tbl in ["events", "correlations", "patterns"]:
             try:
+                column_exists = False
                 with self.get_connection() as conn:
-                    conn.execute(f"ALTER TABLE {tbl} ADD COLUMN workspace_id TEXT DEFAULT 'default_workspace'")
-            except sqlite3.OperationalError:
-                # Column already exists
-                pass
+                    cursor = conn.execute(f"PRAGMA table_info({tbl})")
+                    for row in cursor.fetchall():
+                        if row["name"] == "workspace_id":
+                            column_exists = True
+                            break
+                if not column_exists:
+                    with self.get_connection() as conn:
+                        conn.execute(f"ALTER TABLE {tbl} ADD COLUMN workspace_id TEXT DEFAULT 'default_workspace'")
+            except Exception as e:
+                logger.warning(f"Failed to verify/migrate column workspace_id in {tbl}: {e}")
         logger.info(f"SQLite Relational Memory database initialized at: {DB_PATH}")
 
     def add_event(

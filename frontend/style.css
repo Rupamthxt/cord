@@ -459,7 +459,11 @@ textarea {
   align-items: start;
 }
 
-@media (max-width: 850px) {
+.diagnostics-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 950px) {
   .diagnostics-grid {
     grid-template-columns: 1fr;
   }
@@ -688,7 +692,11 @@ textarea {
   margin-bottom: 1.5rem;
 }
 
-@media (max-width: 1000px) {
+.results-split-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 1200px) {
   .results-split-grid {
     grid-template-columns: 1fr;
   }
@@ -743,12 +751,14 @@ textarea {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .timeline-desc {
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin-top: 0.2rem;
+  word-break: break-word;
 }
 
 /* Correlation links style */
@@ -785,6 +795,7 @@ textarea {
 .correlation-reason {
   font-size: 0.8rem;
   color: var(--text-secondary);
+  word-break: break-word;
 }
 
 /* Vector Chunks list */
@@ -801,6 +812,8 @@ textarea {
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.15s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .evidence-item:hover {
