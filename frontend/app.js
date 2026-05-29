@@ -281,6 +281,9 @@ function loadTabContentData() {
   else if (activeView === 'tab-escalations') {
     loadEscalations();
   } 
+  else if (activeView === 'tab-workflows') {
+    loadWorkflows();
+  }
   else if (activeView === 'tab-timeline') {
     loadTimeline();
   }
@@ -652,7 +655,48 @@ function showDocumentModal(title, source, author, timestamp, content) {
   evidenceModal.classList.add('active');
 }
 
-
+// Seed Demo Workspace
+async function seedDemoWorkspace() {
+  const seedBtn = document.getElementById('btn-seed-demo');
+  if (!seedBtn) return;
+  seedBtn.disabled = true;
+  seedBtn.textContent = 'Seeding...';
+  
+  logConsole('Triggering Demo Workspace Seeding pipeline...', 'info');
+  
+  try {
+    const response = await fetch('/api/demo/seed', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) throw new Error(`HTTP Error Status ${response.status}`);
+    
+    const data = await response.json();
+    logConsole('Demo workspace seeded successfully! Fetching workspaces list...', 'success');
+    
+    // Refresh user's workspaces
+    await fetchWorkspaces();
+    populateWorkspaceSelect();
+    
+    // Change to demo_workspace
+    activeWorkspaceId = 'demo_workspace';
+    localStorage.setItem('cord_active_workspace', activeWorkspaceId);
+    workspaceSelect.value = activeWorkspaceId;
+    
+    logConsole('Switched active workspace to seeded demo_workspace.', 'success');
+    loadTabContentData();
+  } catch (err) {
+    logConsole(`Demo workspace seeding failed: ${err.message}`, 'error');
+    alert(`Demo Seeding Failed: ${err.message}`);
+  } finally {
+    seedBtn.disabled = false;
+    seedBtn.textContent = 'Seed Demo Project';
+  }
+}
 
 // Workspace Ingestion Synchronizer with Circular Progress Bar
 async function syncActiveWorkspace() {
@@ -1281,9 +1325,398 @@ async function loadEvaluationMetrics() {
   consistencyEl.textContent = `${(data.evidence_consistency_score * 100).toFixed(1)}%`;
   hallucinationEl.textContent = `${(data.hallucination_rate * 100).toFixed(1)}%`;
   
-  logConsole('Calibration metrics calculated.', 'success', 'eval-diagnostics-console');
-  logConsole(`Precision: ${data.retrieval_precision} | Recall: ${data.retrieval_recall}`, 'info', 'eval-diagnostics-console');
-  logConsole(`Consistency Score: ${data.evidence_consistency_score} (100% means zero references to missing source chunks)`, 'info', 'eval-diagnostics-console');
-  logConsole(`Hallucination Rate: ${data.hallucination_rate} (0.0% means no invented references)`, 'info', 'eval-diagnostics-console');
   logConsole(`Evaluation Model: ${data.diagnostics.eval_model}`, 'info', 'eval-diagnostics-console');
+}
+
+
+// --- Tab: Workflows ---
+let currentWorkflowsFilter = 'all';
+let selectedWorkflowId = null;
+let currentWorkflowsList = [];
+
+async function loadWorkflows() {
+  const container = document.getElementById('workflows-container');
+  container.innerHTML = '<div class="empty-state">Loading workflows...</div>';
+  
+  // Set up filter states payload
+  const payload = {};
+  if (currentWorkflowsFilter !== 'all') {
+    payload.states = [currentWorkflowsFilter];
+  }
+  
+  const data = await callWorkflowApi('/pilot/workflows', payload);
+  if (!data || !data.workflows) {
+    container.innerHTML = '<div class="empty-state">Failed to load workflows.</div>';
+    document.getElementById('workflows-count-badge').textContent = '0 Active';
+    return;
+  }
+  
+  currentWorkflowsList = data.workflows;
+  document.getElementById('workflows-count-badge').textContent = `${currentWorkflowsList.length} Workflows`;
+  
+  renderWorkflows(currentWorkflowsList);
+  
+  // Auto-select active workflow if it exists in the list
+  if (selectedWorkflowId) {
+    const stillExists = currentWorkflowsList.find(w => w.id === selectedWorkflowId);
+    if (stillExists) {
+      selectWorkflow(stillExists);
+    } else {
+      clearActiveWorkflowView();
+    }
+  } else {
+    clearActiveWorkflowView();
+  }
+}
+
+function filterWorkflows(state) {
+  currentWorkflowsFilter = state;
+  
+  // Highlight correct filter pill
+  document.querySelectorAll('.filter-bar button').forEach(btn => {
+    btn.classList.remove('active-filter-pill');
+  });
+  const activePill = document.getElementById(`wf-filter-${state}`);
+  if (activePill) {
+    activePill.classList.add('active-filter-pill');
+  }
+  
+  loadWorkflows();
+}
+
+function renderWorkflows(workflows) {
+  const container = document.getElementById('workflows-container');
+  if (workflows.length === 0) {
+    container.innerHTML = '<div class="empty-state">No workflows found.</div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  workflows.forEach(wf => {
+    const card = document.createElement('div');
+    card.className = `workflow-card ${wf.id === selectedWorkflowId ? 'active-wf-card' : ''}`;
+    card.onclick = () => selectWorkflow(wf);
+    
+    const formattedDate = new Date(wf.created_at).toLocaleString();
+    const priorityClass = `workflow-priority-${wf.priority}`;
+    
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase;" class="${priorityClass}">
+          ${wf.priority.toUpperCase()}
+        </span>
+        <span class="badge" style="font-size: 0.7rem; border-color: var(--border-color);">${wf.state.replace('_', ' ').toUpperCase()}</span>
+      </div>
+      <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem; line-height: 1.3;">${escapeHtml(wf.title)}</h4>
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+        <span>Type: ${wf.workflow_type.replace('_', ' ')}</span>
+        <span>${formattedDate}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function clearActiveWorkflowView() {
+  selectedWorkflowId = null;
+  document.getElementById('active-workflow-view').style.display = 'none';
+  document.getElementById('no-active-workflow-view').style.display = 'flex';
+}
+
+async function selectWorkflow(wf) {
+  selectedWorkflowId = wf.id;
+  
+  // Highlight active card
+  loadWorkflowsListHighlightOnly();
+
+  document.getElementById('no-active-workflow-view').style.display = 'none';
+  document.getElementById('active-workflow-view').style.display = 'block';
+  
+  document.getElementById('active-wf-title').textContent = wf.title;
+  document.getElementById('active-wf-type-status').innerHTML = `
+    <strong>Type:</strong> ${wf.workflow_type.replace('_', ' ')} | <strong>State:</strong> <span class="badge">${wf.state.toUpperCase()}</span>
+  `;
+  
+  const assigneesText = wf.assigned_entities && wf.assigned_entities.length > 0
+    ? wf.assigned_entities.map(e => `${e.name} (${e.type})`).join(', ')
+    : 'None';
+  document.getElementById('active-wf-assignees').textContent = assigneesText;
+  document.getElementById('active-wf-priority').textContent = wf.priority.toUpperCase();
+  document.getElementById('active-wf-created').textContent = new Date(wf.created_at).toLocaleString();
+  
+  // Load Recommendations
+  const recsContainer = document.getElementById('active-wf-recommendations');
+  recsContainer.innerHTML = '';
+  const recommendations = wf.metadata && wf.metadata.recommendations
+    ? wf.metadata.recommendations
+    : ["No recommendations generated for this workflow type."];
+  recommendations.forEach(rec => {
+    const li = document.createElement('li');
+    li.style.marginBottom = '0.5rem';
+    li.textContent = rec;
+    recsContainer.appendChild(li);
+  });
+  
+  // Load Transition Log Trail
+  const trailContainer = document.getElementById('active-wf-trail');
+  trailContainer.innerHTML = '';
+  const transitions = (wf.metadata && wf.metadata.state_transitions) || [];
+  if (transitions.length === 0) {
+    trailContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted);">No state transitions logged.</div>';
+  } else {
+    transitions.forEach(t => {
+      const stepDiv = document.createElement('div');
+      stepDiv.style.fontSize = '0.8rem';
+      stepDiv.style.marginBottom = '0.75rem';
+      const fromStr = t.from_state ? t.from_state.replace('_', ' ').toUpperCase() : 'INIT';
+      const toStr = t.to_state.replace('_', ' ').toUpperCase();
+      const transitionTime = new Date(t.timestamp).toLocaleString();
+      stepDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.15rem;">
+          <span><strong>${fromStr}</strong> &rarr; <strong>${toStr}</strong></span>
+          <span style="color: var(--text-muted); font-size: 0.75rem;">${transitionTime}</span>
+        </div>
+        <div style="color: var(--text-secondary); font-style: italic;">"${escapeHtml(t.notes || 'No description provided.')}"</div>
+      `;
+      trailContainer.appendChild(stepDiv);
+    });
+    trailContainer.scrollTop = trailContainer.scrollHeight;
+  }
+  
+  // Load Linked Assets (Events and Insights)
+  const assetsContainer = document.getElementById('active-wf-assets');
+  assetsContainer.innerHTML = '';
+  const relatedEvents = wf.related_events || [];
+  const relatedInsights = wf.related_insights || [];
+  
+  if (relatedEvents.length === 0 && relatedInsights.length === 0) {
+    assetsContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted);">No operational assets linked.</div>';
+  } else {
+    relatedEvents.forEach(evtId => {
+      const row = document.createElement('div');
+      row.style.background = 'rgba(255, 255, 255, 0.02)';
+      row.style.border = '1px solid var(--border-color)';
+      row.style.borderRadius = '4px';
+      row.style.padding = '0.5rem';
+      row.style.fontSize = '0.8rem';
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.alignItems = 'center';
+      row.innerHTML = `
+        <span>⚡ <strong>Event:</strong> <span style="font-family: var(--font-mono); font-size: 0.75rem;">${evtId}</span></span>
+        <button class="btn btn-outline btn-sm" onclick="showAssetDetails('event', '${evtId}')" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">View</button>
+      `;
+      assetsContainer.appendChild(row);
+    });
+    
+    relatedInsights.forEach(insId => {
+      const row = document.createElement('div');
+      row.style.background = 'rgba(255, 255, 255, 0.02)';
+      row.style.border = '1px solid var(--border-color)';
+      row.style.borderRadius = '4px';
+      row.style.padding = '0.5rem';
+      row.style.fontSize = '0.8rem';
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.alignItems = 'center';
+      row.innerHTML = `
+        <span>💡 <strong>Insight:</strong> <span style="font-family: var(--font-mono); font-size: 0.75rem;">${insId}</span></span>
+        <button class="btn btn-outline btn-sm" onclick="showAssetDetails('insight', '${insId}')" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;">View</button>
+      `;
+      assetsContainer.appendChild(row);
+    });
+  }
+  
+  // Populate the Events dropdown list
+  populateLinkableEventsDropdown();
+}
+
+function loadWorkflowsListHighlightOnly() {
+  document.querySelectorAll('.workflow-card').forEach((c, idx) => {
+    const wf = currentWorkflowsList[idx];
+    if (wf && wf.id === selectedWorkflowId) {
+      c.classList.add('active-wf-card');
+    } else {
+      c.classList.remove('active-wf-card');
+    }
+  });
+}
+
+async function populateLinkableEventsDropdown() {
+  const selectEl = document.getElementById('linkable-events-select');
+  selectEl.innerHTML = '<option value="">Loading events...</option>';
+  
+  const data = await callPilotApi('/pilot/timeline-analysis');
+  if (!data || !data.timeline || data.timeline.length === 0) {
+    selectEl.innerHTML = '<option value="">No linkable events in workspace</option>';
+    return;
+  }
+  
+  selectEl.innerHTML = '';
+  data.timeline.forEach(evt => {
+    const opt = document.createElement('option');
+    opt.value = evt.id;
+    opt.textContent = `[${evt.event_type.toUpperCase()}] ${evt.title.substring(0, 45)}...`;
+    selectEl.appendChild(opt);
+  });
+}
+
+async function linkAssetToActiveWorkflow() {
+  if (!selectedWorkflowId) return;
+  const selectEl = document.getElementById('linkable-events-select');
+  const eventId = selectEl.value;
+  if (!eventId) {
+    alert("Please select a workspace event to link.");
+    return;
+  }
+  
+  logConsole(`Linking event ${eventId} to workflow ${selectedWorkflowId}...`, 'info');
+  
+  const updated = await callWorkflowApi(`/pilot/workflows/${selectedWorkflowId}/link`, {
+    related_events: [eventId]
+  });
+  
+  if (updated) {
+    logConsole('Event successfully linked to workflow.', 'success');
+    // Refresh the details view
+    selectWorkflow(updated);
+  } else {
+    logConsole('Failed to link event to workflow.', 'error');
+  }
+}
+
+async function transitionActiveWorkflow(targetState) {
+  if (!selectedWorkflowId) return;
+  const notesEl = document.getElementById('transition-notes');
+  const notesText = notesEl.value.trim();
+  
+  logConsole(`Transitioning workflow to: ${targetState}...`, 'info');
+  
+  const updated = await callWorkflowApi(`/pilot/workflows/${selectedWorkflowId}/transition`, {
+    state: targetState,
+    user_notes: notesText || `State changed to ${targetState}.`
+  });
+  
+  if (updated) {
+    logConsole(`Workflow state transitioned to: ${targetState}.`, 'success');
+    notesEl.value = '';
+    // Refresh active workflow and parent list
+    selectWorkflow(updated);
+    loadWorkflows();
+  } else {
+    logConsole(`Failed to transition workflow state to: ${targetState}.`, 'error');
+  }
+}
+
+async function submitCreateWorkflow() {
+  const titleEl = document.getElementById('create-wf-title');
+  const typeEl = document.getElementById('create-wf-type');
+  const priorityEl = document.getElementById('create-wf-priority');
+  const assigneeEl = document.getElementById('create-wf-assignee');
+  
+  const title = titleEl.value.trim();
+  const type = typeEl.value;
+  const priority = priorityEl.value;
+  const assignee = assigneeEl.value.trim();
+  
+  if (!title) {
+    alert("Please enter a workflow title.");
+    return;
+  }
+  
+  logConsole(`Initiating custom workflow: "${title}"...`, 'info');
+  
+  const payload = {
+    title: title,
+    workflow_type: type,
+    state: 'pending_review',
+    priority: priority,
+    assigned_entities: assignee ? [{ name: assignee, type: 'team' }] : [],
+    related_events: [],
+    related_insights: [],
+    metadata: {
+      recommendations: [
+        "Initialize verification checklist logs.",
+        "Cluster related telemetry alarms and developer context logs."
+      ]
+    }
+  };
+  
+  const newWf = await callWorkflowApi('/pilot/workflows/create', payload);
+  if (newWf) {
+    logConsole('Workflow initiated successfully.', 'success');
+    titleEl.value = '';
+    assigneeEl.value = '';
+    
+    // Select the new workflow
+    selectedWorkflowId = newWf.id;
+    // Reload workflows list
+    await loadWorkflows();
+    // Show details
+    selectWorkflow(newWf);
+  } else {
+    logConsole('Failed to initiate custom workflow.', 'error');
+  }
+}
+
+// Utility post helper specifically for workflow actions
+async function callWorkflowApi(endpoint, body = {}) {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ workspace_id: activeWorkspaceId, ...body })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (err) {
+    logConsole(`Failed to call ${endpoint}: ${err.message}`, 'error');
+    return null;
+  }
+}
+
+// Helper to view linked asset details in existing modal
+async function showAssetDetails(type, assetId) {
+  const modal = document.getElementById('evidence-modal');
+  const modalTitle = document.getElementById('modal-doc-title');
+  const modalSource = document.getElementById('modal-doc-source');
+  const modalAuthor = document.getElementById('modal-doc-author');
+  const modalTime = document.getElementById('modal-doc-time');
+  const modalContent = document.getElementById('modal-doc-content');
+  
+  modalTitle.textContent = `Linked Asset Details`;
+  modalSource.textContent = `ID: ${assetId}`;
+  modalAuthor.textContent = `TYPE: ${type.toUpperCase()}`;
+  modalTime.textContent = `TIME: Loaded Context`;
+  
+  modalContent.textContent = `Loading asset details for ID ${assetId}...`;
+  modal.style.display = 'flex';
+  
+  // Try to retrieve actual event or insight details from timeline or list
+  try {
+    if (type === 'event') {
+      const data = await callPilotApi('/pilot/timeline-analysis');
+      if (data && data.timeline) {
+        const found = data.timeline.find(e => e.id === assetId);
+        if (found) {
+          modalTitle.textContent = found.title;
+          modalSource.textContent = `SOURCE: ${found.event_type.toUpperCase()}`;
+          modalTime.textContent = `TIMESTAMP: ${found.timestamp}`;
+          modalContent.textContent = JSON.stringify(found, null, 2);
+          return;
+        }
+      }
+    }
+    modalContent.textContent = `Asset details retrieved:
+ID: ${assetId}
+Type: ${type}
+Workspace: ${activeWorkspaceId}
+
+Use the search bar or timeline explorers to trace further causal paths.`;
+  } catch (err) {
+    modalContent.textContent = `Error loading details: ${err.message}`;
+  }
 }

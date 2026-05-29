@@ -80,6 +80,7 @@
       <div class="tab-item" data-tab="tab-recurring">Recurring Issues</div>
       <div class="tab-item" data-tab="tab-deployments">Deployments</div>
       <div class="tab-item" data-tab="tab-escalations">Escalations</div>
+      <div class="tab-item" data-tab="tab-workflows">Workflows</div>
       <div class="tab-item" data-tab="tab-timeline">Timeline</div>
       <div class="tab-item" data-tab="tab-integrations">Connections</div>
       <div class="tab-item" data-tab="tab-evaluation">Evaluation</div>
@@ -328,6 +329,16 @@
                 </div>
               </div>
             </div>
+
+            <!-- Demo Environment Seeder -->
+            <div class="flat-card" style="margin-top: 1.5rem;">
+              <h3 class="panel-title">Demo Environment Seeder</h3>
+              <p class="panel-desc">Seed the database with a high-fidelity mock Notion workspace, Jira project, and Slack threads to demonstrate capabilities to customers.</p>
+              
+              <div style="margin-top: 1rem;">
+                <button id="btn-seed-demo" onclick="seedDemoWorkspace()" class="btn btn-secondary btn-block" style="background-color: var(--accent-cyan); color: var(--bg-primary); border: none; font-weight: 600;">Seed Demo Project</button>
+              </div>
+            </div>
           </div>
 
           <!-- Configuration Form Panel -->
@@ -348,6 +359,152 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Tab: Workflows -->
+      <div id="tab-workflows" class="tab-content">
+        <div class="workflows-dashboard-grid">
+          
+          <!-- Left: Workflows List -->
+          <div class="workflows-list-panel">
+            <div class="flat-card">
+              <div class="content-header">
+                <h2>Operational Workflows</h2>
+                <div class="workflow-header-actions">
+                  <span class="badge" id="workflows-count-badge">0 Active</span>
+                </div>
+              </div>
+              <p class="section-desc">Track and coordinate supervised incident triage response and customer escalation workflows.</p>
+              
+              <!-- Filter Pill bar -->
+              <div class="filter-bar" style="margin-bottom: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button id="wf-filter-all" class="btn btn-sm btn-outline active-filter-pill" onclick="filterWorkflows('all')">All</button>
+                <button id="wf-filter-pending_review" class="btn btn-sm btn-outline" onclick="filterWorkflows('pending_review')">Pending Review</button>
+                <button id="wf-filter-in_progress" class="btn btn-sm btn-outline" onclick="filterWorkflows('in_progress')">In Progress</button>
+                <button id="wf-filter-escalated" class="btn btn-sm btn-outline" onclick="filterWorkflows('escalated')">Escalated</button>
+                <button id="wf-filter-completed" class="btn btn-sm btn-outline" onclick="filterWorkflows('completed')">Completed</button>
+              </div>
+
+              <!-- Workflows List Container -->
+              <div id="workflows-container" class="workflows-scroll-container">
+                <!-- Dynamically loaded workflows -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Workflow Actions & Live Asset Linker -->
+          <div class="workflow-details-panel">
+            <!-- Active Workflow View -->
+            <div id="active-workflow-view" class="flat-card" style="display: none;">
+              <h3 class="panel-title" id="active-wf-title">Workflow Title</h3>
+              <p class="panel-desc" id="active-wf-type-status">Type: incident_response | State: pending_review</p>
+              
+              <div class="workflow-meta-box" style="background: rgba(255, 255, 255, 0.03); padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                <div style="margin-bottom: 0.5rem;"><strong>Assigned:</strong> <span id="active-wf-assignees">-</span></div>
+                <div style="margin-bottom: 0.5rem;"><strong>Priority:</strong> <span id="active-wf-priority">-</span></div>
+                <div style="margin-bottom: 0.5rem;"><strong>Created:</strong> <span id="active-wf-created">-</span></div>
+              </div>
+
+              <!-- Recommendations Section -->
+              <div style="margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">Recommendations & Remediations</h4>
+                <ul id="active-wf-recommendations" style="padding-left: 1.2rem; line-height: 1.5; font-size: 0.9rem;">
+                  <!-- Dynamically populated -->
+                </ul>
+              </div>
+
+              <!-- Transition Log Timeline -->
+              <div style="margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">State Transition Trail</h4>
+                <div class="timeline-trail" id="active-wf-trail" style="max-height: 150px; overflow-y: auto; padding-left: 0.5rem; border-left: 2px solid var(--border-color); margin-bottom: 0.5rem;">
+                  <!-- Dynamic trails -->
+                </div>
+              </div>
+
+              <!-- Linked Assets (Events and Insights) -->
+              <div style="margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">Linked Assets</h4>
+                <div id="active-wf-assets" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <!-- Dynamic asset links -->
+                </div>
+              </div>
+
+              <!-- Transition Controls Form -->
+              <div class="transition-controls-box" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.75rem;">Transition Workflow State</h4>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                  <label for="transition-notes">Action/Approver Notes</label>
+                  <textarea id="transition-notes" rows="2" style="width: 100%; border-radius: 4px; padding: 0.5rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary);" placeholder="Provide reasoning or approval notes..."></textarea>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button class="btn btn-outline" id="btn-wf-approve" onclick="transitionActiveWorkflow('in_progress')">Approve / Start</button>
+                  <button class="btn btn-outline btn-alert" id="btn-wf-escalate" onclick="transitionActiveWorkflow('escalated')" style="border-color: var(--accent-red); color: var(--accent-red);">Escalate</button>
+                  <button class="btn btn-primary" id="btn-wf-complete" onclick="transitionActiveWorkflow('completed')">Complete / Close</button>
+                </div>
+              </div>
+
+              <!-- Link Asset Tool -->
+              <div class="link-assets-tool" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.75rem;">Link Workspace Assets</h4>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">Select from recent workspace events to link directly to this workflow context:</p>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                  <select id="linkable-events-select" style="flex-grow: 1; padding: 0.5rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    <!-- Recent events list -->
+                  </select>
+                  <button class="btn btn-outline btn-sm" onclick="linkAssetToActiveWorkflow()">Link Event</button>
+                </div>
+              </div>
+
+            </div>
+
+            <div id="no-active-workflow-view" class="flat-card" style="text-align: center; padding: 3rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <div style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem;">📋</div>
+              <h3>No Workflow Selected</h3>
+              <p style="color: var(--text-secondary); max-width: 320px; margin-top: 0.5rem;">Select an operational workflow from the left pane, or create a new one below to get started.</p>
+            </div>
+
+            <!-- Create Workflow Form Card -->
+            <div class="flat-card" style="margin-top: 1.5rem;">
+              <h3 class="panel-title">Initiate Custom Workflow</h3>
+              <p class="panel-desc">Launch a manual triage flow or deployment verification checklist.</p>
+              
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="create-wf-title">Workflow Title</label>
+                <input type="text" id="create-wf-title" style="width: 100%;" placeholder="e.g., Triage: Redis Connection Latency Regression">
+              </div>
+
+              <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                  <label for="create-wf-type">Workflow Type</label>
+                  <select id="create-wf-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    <option value="incident_response">Incident Response</option>
+                    <option value="customer_escalation">Customer Escalation</option>
+                    <option value="deployment_verification">Deployment Verification</option>
+                    <option value="workflow_coordination">Workflow Coordination</option>
+                  </select>
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                  <label for="create-wf-priority">Priority</label>
+                  <select id="create-wf-priority" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="create-wf-assignee">Assignee Team</label>
+                <input type="text" id="create-wf-assignee" style="width: 100%;" placeholder="e.g., DevOps On-Call Team">
+              </div>
+
+              <button class="btn btn-primary btn-block" onclick="submitCreateWorkflow()">Create Workflow</button>
+            </div>
+          </div>
+
         </div>
       </div>
 

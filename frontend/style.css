@@ -1299,6 +1299,8 @@ textarea {
   min-width: 0;
 }
 
+}
+
 .diagnostics-chat-col {
   min-width: 0;
 }
@@ -1325,5 +1327,70 @@ textarea {
   .chat-conversation-container {
     max-height: 400px;
   }
+}
+
+
+/* Workflows Dashboard Styles */
+.workflows-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .workflows-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.workflows-scroll-container {
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* Custom Workflow Cards styling */
+.workflow-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.workflow-card:hover {
+  border-color: var(--accent-blue);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.workflow-card.active-wf-card {
+  border-color: var(--accent-blue);
+  background: rgba(0, 102, 204, 0.1);
+  box-shadow: 0 0 10px rgba(0, 102, 204, 0.2);
+}
+
+.active-filter-pill {
+  background-color: var(--accent-blue) !important;
+  color: #fff !important;
+  border-color: var(--accent-blue) !important;
+}
+
+.workflow-priority-critical {
+  color: var(--accent-red);
+  font-weight: bold;
+}
+.workflow-priority-high {
+  color: #ffaa00;
+  font-weight: bold;
+}
+.workflow-priority-medium {
+  color: #00aaff;
+  font-weight: bold;
+}
+.workflow-priority-low {
+  color: var(--text-muted);
 }
 

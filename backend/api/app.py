@@ -632,6 +632,19 @@ async def sync_jira_tickets(body: JiraSyncRequest):
 # Demo Simulation Routes
 # ----------------------------------------------------
 
+@app.post("/api/demo/seed", tags=["Demo"])
+async def seed_demo_endpoint():
+    """
+    Seeds a rich corporate demo workspace containing Notion, Slack, and Jira mocks.
+    """
+    try:
+        from backend.core.utils.seed_demo import seed_demo_workspace_data
+        seed_demo_workspace_data("demo_workspace")
+        return {"status": "success", "message": "Demo workspace seeded successfully.", "workspace_id": "demo_workspace"}
+    except Exception as e:
+        logger.error(f"Demo seeding failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Demo Seeding Error: {str(e)}")
+
 
 
 

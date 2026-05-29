@@ -262,6 +262,159 @@ class TestPilotEndpoints(unittest.TestCase):
             self.assertIn("confidence_calibration_ratio", data)
             self.assertIn("diagnostics", data)
 
+    @patch("backend.api.pilot_router.workflow_store")
+    def test_list_workflows_endpoint(self, mock_store):
+        import uuid
+        mock_wf = MagicMock()
+        mock_wf.id = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        mock_wf.title = "Test Workflow"
+        mock_wf.workflow_type = "incident_response"
+        mock_wf.state = "pending_review"
+        mock_wf.assigned_entities = []
+        mock_wf.related_events = []
+        mock_wf.related_insights = []
+        mock_wf.priority = "medium"
+        mock_wf.workspace_id = "demo_test_ws"
+        mock_wf.created_at = datetime.now(timezone.utc)
+        mock_wf.updated_at = datetime.now(timezone.utc)
+        mock_wf.metadata_ = {}
+        mock_wf.metadata = {}
+        
+        mock_store.list_workflows = AsyncMock(return_value=[mock_wf])
+        
+        response = self.client.post(
+            "/pilot/workflows",
+            json={"workspace_id": "demo_test_ws", "limit": 10, "states": ["pending_review"]}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["workspace_id"], "demo_test_ws")
+        self.assertIn("workflows", data)
+        self.assertEqual(len(data["workflows"]), 1)
+        self.assertEqual(data["workflows"][0]["title"], "Test Workflow")
+
+    @patch("backend.api.pilot_router.workflow_store")
+    def test_create_workflow_endpoint(self, mock_store):
+        import uuid
+        mock_wf = MagicMock()
+        mock_wf.id = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        mock_wf.title = "Created Workflow"
+        mock_wf.workflow_type = "incident_response"
+        mock_wf.state = "draft"
+        mock_wf.assigned_entities = []
+        mock_wf.related_events = []
+        mock_wf.related_insights = []
+        mock_wf.priority = "high"
+        mock_wf.workspace_id = "demo_test_ws"
+        mock_wf.created_at = datetime.now(timezone.utc)
+        mock_wf.updated_at = datetime.now(timezone.utc)
+        mock_wf.metadata_ = {}
+        mock_wf.metadata = {}
+        
+        mock_store.create_workflow = AsyncMock(return_value=mock_wf)
+        
+        response = self.client.post(
+            "/pilot/workflows/create",
+            json={
+                "title": "Created Workflow",
+                "workflow_type": "incident_response",
+                "state": "draft",
+                "assigned_entities": [],
+                "related_events": [],
+                "related_insights": [],
+                "priority": "high",
+                "workspace_id": "demo_test_ws",
+                "metadata": {}
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["title"], "Created Workflow")
+        self.assertEqual(data["state"], "draft")
+        self.assertEqual(data["priority"], "high")
+
+    @patch("backend.api.pilot_router.workflow_coordinator")
+    @patch("backend.api.pilot_router.workflow_store")
+    def test_transition_workflow_endpoint(self, mock_store, mock_coord):
+        import uuid
+        mock_wf = MagicMock()
+        mock_wf.id = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        mock_wf.title = "Escalated Workflow"
+        mock_wf.workflow_type = "incident_response"
+        mock_wf.state = "escalated"
+        mock_wf.assigned_entities = [{"name": "Director of Engineering", "type": "person"}]
+        mock_wf.related_events = []
+        mock_wf.related_insights = []
+        mock_wf.priority = "high"
+        mock_wf.workspace_id = "demo_test_ws"
+        mock_wf.created_at = datetime.now(timezone.utc)
+        mock_wf.updated_at = datetime.now(timezone.utc)
+        mock_wf.metadata_ = {}
+        mock_wf.metadata = {}
+        
+        mock_coord.escalate_workflow = AsyncMock(return_value=mock_wf)
+        
+        response = self.client.post(
+            f"/pilot/workflows/{mock_wf.id}/transition",
+            json={
+                "state": "escalated",
+                "user_notes": "SLA breach warning",
+                "workspace_id": "demo_test_ws"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["state"], "escalated")
+        self.assertEqual(data["assigned_entities"][0]["name"], "Director of Engineering")
+
+    @patch("backend.api.pilot_router.workflow_store")
+    def test_link_workflow_assets_endpoint(self, mock_store):
+        import uuid
+        mock_wf = MagicMock()
+        mock_wf.id = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        mock_wf.title = "Workflow Assets"
+        mock_wf.workflow_type = "incident_response"
+        mock_wf.state = "draft"
+        mock_wf.assigned_entities = []
+        mock_wf.related_events = ["22222222-2222-2222-2222-222222222222"]
+        mock_wf.related_insights = []
+        mock_wf.priority = "medium"
+        mock_wf.workspace_id = "demo_test_ws"
+        mock_wf.created_at = datetime.now(timezone.utc)
+        mock_wf.updated_at = datetime.now(timezone.utc)
+        mock_wf.metadata_ = {}
+        mock_wf.metadata = {}
+        
+        mock_store.get_by_id = AsyncMock(return_value=mock_wf)
+        
+        mock_updated_wf = MagicMock()
+        mock_updated_wf.id = mock_wf.id
+        mock_updated_wf.title = mock_wf.title
+        mock_updated_wf.workflow_type = mock_wf.workflow_type
+        mock_updated_wf.state = mock_wf.state
+        mock_updated_wf.assigned_entities = mock_wf.assigned_entities
+        mock_updated_wf.related_events = [uuid.UUID("22222222-2222-2222-2222-222222222222"), uuid.UUID("33333333-3333-3333-3333-333333333333")]
+        mock_updated_wf.related_insights = []
+        mock_updated_wf.priority = mock_wf.priority
+        mock_updated_wf.workspace_id = mock_wf.workspace_id
+        mock_updated_wf.created_at = mock_wf.created_at
+        mock_updated_wf.updated_at = datetime.now(timezone.utc)
+        mock_updated_wf.metadata_ = {}
+        mock_updated_wf.metadata = {}
+        
+        mock_store.update_workflow = AsyncMock(return_value=mock_updated_wf)
+        
+        response = self.client.post(
+            f"/pilot/workflows/{mock_wf.id}/link",
+            json={
+                "related_events": ["33333333-3333-3333-3333-333333333333"],
+                "workspace_id": "demo_test_ws"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["related_events"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

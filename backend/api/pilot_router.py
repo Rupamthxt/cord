@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -7,6 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.graph.db import get_db_session
 from backend.core.utils.security import audit_logger, workspace_isolation
 from backend.intelligence.issue_analyzer import IssueAnalyzer
+from backend.intelligence.workflows.store import workflow_store
+from backend.intelligence.workflows.schema import WorkflowCreate, WorkflowUpdate, WorkflowRead
+from backend.intelligence.coordination.engine import workflow_coordinator
 
 logger = logging.getLogger(__name__)
 
@@ -236,4 +240,148 @@ async def evaluate_operational_intelligence(body: PilotBaseRequest):
         return report
     except Exception as e:
         logger.error(f"Evaluation pipeline failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Workflow schemas
+class ListWorkflowsRequest(PilotBaseRequest):
+    states: Optional[List[str]] = Field(default=None, description="Filter workflows by state")
+    priorities: Optional[List[str]] = Field(default=None, description="Filter workflows by priority")
+
+
+class TransitionWorkflowRequest(BaseModel):
+    state: str = Field(..., description="Target state")
+    user_notes: Optional[str] = Field(default=None, description="Notes for transition")
+    workspace_id: str = Field(default="default_workspace")
+
+
+class LinkWorkflowAssetsRequest(BaseModel):
+    related_events: Optional[List[uuid.UUID]] = Field(default=None)
+    related_insights: Optional[List[uuid.UUID]] = Field(default=None)
+    workspace_id: str = Field(default="default_workspace")
+
+
+@router.post("/workflows")
+async def list_workflows(body: ListWorkflowsRequest):
+    """
+    List active workflows filtered by workspace/state.
+    """
+    ws = workspace_isolation.enforce_workspace_scope(body.workspace_id)
+    audit_logger.log_access("", ws, "List workflows")
+
+    try:
+        async with get_db_session() as session:
+            workflows = await workflow_store.list_workflows(
+                session=session,
+                workspace_id=ws,
+                states=body.states,
+                priorities=body.priorities,
+                limit=body.limit
+            )
+            serialized = [WorkflowRead.model_validate(w).model_dump(by_alias=True) for w in workflows]
+            return {
+                "workspace_id": ws,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "workflows": serialized
+            }
+    except Exception as e:
+        logger.error(f"Failed to list workflows: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/workflows/create")
+async def create_workflow_endpoint(body: WorkflowCreate):
+    """
+    Programmatically create a workflow.
+    """
+    ws = workspace_isolation.enforce_workspace_scope(body.workspace_id)
+    body.workspace_id = ws
+    audit_logger.log_access(body.title, ws, "Create workflow")
+
+    try:
+        async with get_db_session() as session:
+            workflow = await workflow_store.create_workflow(session, body)
+            return WorkflowRead.model_validate(workflow).model_dump(by_alias=True)
+    except Exception as e:
+        logger.error(f"Failed to create workflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/workflows/{workflow_id}/transition")
+async def transition_workflow_endpoint(workflow_id: uuid.UUID, body: TransitionWorkflowRequest):
+    """
+    Approves, escalates, or transitions a workflow state.
+    """
+    ws = workspace_isolation.enforce_workspace_scope(body.workspace_id)
+    audit_logger.log_access(f"Transition workflow {workflow_id} to {body.state}", ws, "Transition workflow")
+
+    try:
+        async with get_db_session() as session:
+            if body.state == "escalated":
+                workflow = await workflow_coordinator.escalate_workflow(
+                    session=session,
+                    workflow_id=workflow_id,
+                    escalation_notes=body.user_notes or "State transitioned to escalated.",
+                    workspace_id=ws
+                )
+            elif body.state == "in_progress":
+                workflow = await workflow_coordinator.approve_workflow(
+                    session=session,
+                    workflow_id=workflow_id,
+                    approval_notes=body.user_notes or "State transitioned to in_progress (approved).",
+                    workspace_id=ws
+                )
+            else:
+                workflow = await workflow_store.update_workflow_state(
+                    session=session,
+                    workflow_id=workflow_id,
+                    state=body.state,
+                    user_notes=body.user_notes,
+                    workspace_id=ws
+                )
+
+            if not workflow:
+                raise HTTPException(status_code=404, detail="Workflow not found")
+
+            return WorkflowRead.model_validate(workflow).model_dump(by_alias=True)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Failed to transition workflow: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/workflows/{workflow_id}/link")
+async def link_workflow_assets_endpoint(workflow_id: uuid.UUID, body: LinkWorkflowAssetsRequest):
+    """
+    Dynamically links a document/event ID or insight ID to the workflow.
+    """
+    ws = workspace_isolation.enforce_workspace_scope(body.workspace_id)
+    audit_logger.log_access(f"Link assets to workflow {workflow_id}", ws, "Link workflow assets")
+
+    try:
+        async with get_db_session() as session:
+            workflow = await workflow_store.get_by_id(session, workflow_id, ws)
+            if not workflow:
+                raise HTTPException(status_code=404, detail="Workflow not found")
+
+            # Merge lists
+            existing_events = set(uuid.UUID(x) if isinstance(x, str) else x for x in (workflow.related_events or []))
+            existing_insights = set(uuid.UUID(x) if isinstance(x, str) else x for x in (workflow.related_insights or []))
+
+            if body.related_events:
+                existing_events.update(body.related_events)
+            if body.related_insights:
+                existing_insights.update(body.related_insights)
+
+            update_payload = WorkflowUpdate(
+                related_events=list(existing_events),
+                related_insights=list(existing_insights),
+            )
+            updated = await workflow_store.update_workflow(session, workflow_id, update_payload, ws)
+            return WorkflowRead.model_validate(updated).model_dump(by_alias=True)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Failed to link workflow assets: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
