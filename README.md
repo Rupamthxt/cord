@@ -122,7 +122,7 @@ graph TD
 
 ### 2. Multi-Dimensional Ranking
 Scores retrieved chunks by combining semantic vector cosine similarity with metadata-based relevance boosts:
-- **Recency Decay**: Exponential time-decay ($e^{-0.01 \cdot \text{days\_diff}}$) favoring newer operational documents.
+- **Recency Decay**: Exponential time-decay ($e^{-0.01 \cdot \text{daysDiff}}$) favoring newer operational documents.
 - **Hierarchy Scope Scoping**: Boosts documents under a requested subtree prefix (e.g. `/Notion/Engineering/Incidents`).
 - **Entity Matching**: Boosts matches containing overlapping entities extracted from the query.
 - **Source Weighting**: Gives official wiki documentation a slight priority boost over informal chats.
