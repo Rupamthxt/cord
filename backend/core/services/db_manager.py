@@ -183,6 +183,23 @@ class DBManager:
                         conn.execute(f"ALTER TABLE {tbl} ADD COLUMN workspace_id TEXT DEFAULT 'default_workspace'")
             except Exception as e:
                 logger.warning(f"Failed to verify/migrate column workspace_id in {tbl}: {e}")
+
+        # Verify / migrate workspaces columns for Stripe
+        for col_name in ["stripe_customer_id", "stripe_subscription_id", "subscription_status", "plan_level"]:
+            try:
+                column_exists = False
+                with self.get_connection() as conn:
+                    cursor = conn.execute("PRAGMA table_info(workspaces)")
+                    for row in cursor.fetchall():
+                        if row["name"] == col_name:
+                            column_exists = True
+                            break
+                if not column_exists:
+                    with self.get_connection() as conn:
+                        default_val = "'free'" if col_name == "plan_level" else "'active'" if col_name == "subscription_status" else "NULL"
+                        conn.execute(f"ALTER TABLE workspaces ADD COLUMN {col_name} TEXT DEFAULT {default_val}")
+            except Exception as e:
+                logger.warning(f"Failed to migrate workspace column {col_name}: {e}")
         logger.info(f"SQLite Relational Memory database initialized at: {DB_PATH}")
 
     def add_event(
@@ -491,10 +508,57 @@ class DBManager:
                     "workspace_id": r["workspace_id"],
                     "name": r["name"],
                     "owner_id": r["owner_id"],
-                    "created_at": r["created_at"]
+                    "created_at": r["created_at"],
+                    "stripe_customer_id": r["stripe_customer_id"] if "stripe_customer_id" in r.keys() else None,
+                    "stripe_subscription_id": r["stripe_subscription_id"] if "stripe_subscription_id" in r.keys() else None,
+                    "subscription_status": r["subscription_status"] if "subscription_status" in r.keys() else "active",
+                    "plan_level": r["plan_level"] if "plan_level" in r.keys() else "free"
                 }
                 for r in rows
             ]
+
+    def get_workspace(self, workspace_id: str) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM workspaces WHERE workspace_id = ?",
+                (workspace_id,)
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "workspace_id": row["workspace_id"],
+                "name": row["name"],
+                "owner_id": row["owner_id"],
+                "created_at": row["created_at"],
+                "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
+                "stripe_subscription_id": row["stripe_subscription_id"] if "stripe_subscription_id" in row.keys() else None,
+                "subscription_status": row["subscription_status"] if "subscription_status" in row.keys() else "active",
+                "plan_level": row["plan_level"] if "plan_level" in row.keys() else "free"
+            }
+
+    def update_workspace_subscription(self, workspace_id: str, stripe_customer_id: Optional[str] = None, stripe_subscription_id: Optional[str] = None, subscription_status: Optional[str] = None, plan_level: Optional[str] = None) -> None:
+        updates = []
+        params = []
+        if stripe_customer_id is not None:
+            updates.append("stripe_customer_id = ?")
+            params.append(stripe_customer_id)
+        if stripe_subscription_id is not None:
+            updates.append("stripe_subscription_id = ?")
+            params.append(stripe_subscription_id)
+        if subscription_status is not None:
+            updates.append("subscription_status = ?")
+            params.append(subscription_status)
+        if plan_level is not None:
+            updates.append("plan_level = ?")
+            params.append(plan_level)
+        
+        if not updates:
+            return
+            
+        params.append(workspace_id)
+        query = f"UPDATE workspaces SET {', '.join(updates)} WHERE workspace_id = ?"
+        with self.get_connection() as conn:
+            conn.execute(query, tuple(params))
 
     def save_connector_credentials(self, workspace_id: str, connector_type: str, credentials_json: str, status: str = "active") -> None:
         from datetime import datetime, timezone
@@ -556,5 +620,48 @@ class DBManager:
                     "workspace_id": r["workspace_id"]
                 } for r in rows
             ]
+
+    def get_workspace_document_count(self, workspace_id: str) -> int:
+        """Counts unique document source_ids or URLs in Qdrant for the workspace."""
+        try:
+            from backend.core.models.setup_client import client
+            from backend.core.models.store_memory import COLLECTION_NAME
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            
+            # Verify if collection exists
+            try:
+                client.get_collection(COLLECTION_NAME)
+            except Exception:
+                return 0
+                
+            offset = None
+            unique_docs = set()
+            while True:
+                points, next_page = client.scroll(
+                    collection_name=COLLECTION_NAME,
+                    scroll_filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="workspace_id",
+                                match=MatchValue(value=workspace_id)
+                            )
+                        ]
+                    ),
+                    limit=100,
+                    with_payload=True,
+                    with_vectors=False,
+                    offset=offset
+                )
+                for p in points:
+                    meta = p.payload.get("metadata") or {}
+                    doc_id = meta.get("source_id") or p.payload.get("url") or p.id
+                    unique_docs.add(doc_id)
+                if not next_page:
+                    break
+                offset = next_page
+            return len(unique_docs)
+        except Exception as e:
+            logger.error(f"Error counting documents in Qdrant: {e}")
+            return 0
 
 

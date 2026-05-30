@@ -1394,3 +1394,43 @@ textarea {
   color: var(--text-muted);
 }
 
+/* Billing Plan Badge & Modal Styles */
+.plan-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin-left: 0.5rem;
+}
+
+.plan-badge.free {
+  background-color: rgba(120, 120, 120, 0.15);
+  color: var(--text-secondary);
+  border: 1px solid rgba(120, 120, 120, 0.3);
+}
+
+.plan-badge.free:hover {
+  background-color: rgba(224, 122, 95, 0.15);
+  color: #e07a5f;
+  border-color: #e07a5f;
+}
+
+.plan-badge.pro {
+  background-color: rgba(224, 122, 95, 0.15);
+  color: #e07a5f;
+  border: 1px solid #e07a5f;
+}
+
+.plan-badge.pro:hover {
+  background-color: rgba(224, 122, 95, 0.25);
+  box-shadow: 0 0 8px rgba(224, 122, 95, 0.3);
+}
+

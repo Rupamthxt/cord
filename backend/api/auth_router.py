@@ -323,6 +323,13 @@ async def sync_workspace_data(workspace_id: str, user_id: str = Depends(get_curr
         from backend.connectors.ingestion.chunker import chunk_text
         from backend.core.models.memory_schema import MemoryDocument
         
+        # Quota enforcement logic
+        workspace = db.get_workspace(workspace_id)
+        if workspace and workspace.get("plan_level", "free") == "free":
+            doc_count = db.get_workspace_document_count(workspace_id)
+            if doc_count >= 50:
+                raise HTTPException(status_code=403, detail="WORKSPACE_QUOTA_EXCEEDED")
+
         # 1. Notion Connection Sync
         notion_docs = []
         notion_cred = db.get_connector_credentials(workspace_id, "notion")
@@ -405,6 +412,8 @@ async def sync_workspace_data(workspace_id: str, user_id: str = Depends(get_curr
                 "gdrive": len(gdrive_docs)
             }
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error(f"Workspace sync pipeline failed for workspace {workspace_id}: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))

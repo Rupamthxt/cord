@@ -67,6 +67,7 @@
             <option value="default_workspace">Default Workspace</option>
           </select>
           <button onclick="openNewWorkspaceModal()" class="btn btn-icon" title="Create New Workspace">+</button>
+          <span id="workspace-plan-badge" class="plan-badge free" onclick="handleBillingPortal()" title="Manage subscription">Free</span>
         </div>
         
         <span class="user-email-display" id="user-display-email">user@company.com</span>
@@ -585,6 +586,40 @@
         </div>
         <div class="modal-preview-title">Content Chunk Payload</div>
         <pre class="modal-pre-content" id="modal-doc-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog Modal: Upgrade to Pro -->
+  <div class="modal-overlay" id="upgrade-pro-modal">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header" style="border-bottom: none;">
+        <h3 style="font-family: Georgia, serif; font-size: 1.5rem; color: #e07a5f;">CORD // Pro Upgrade Required</h3>
+        <button onclick="closeUpgradeModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="padding-top: 0.5rem; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1.5rem; color: #e07a5f;">⚡</div>
+        <p style="font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; color: var(--text-secondary);">
+          You have reached the limit of <strong>50 documents</strong> on the Free Plan for this workspace. 
+          To ingest more documents, enable full diagnostics reasoning, and scale unlimited connectors, upgrade to CORD Pro.
+        </p>
+        
+        <div style="background: rgba(224, 122, 95, 0.08); padding: 1.25rem; border-radius: 6px; text-align: left; margin-bottom: 2rem; border-left: 3px solid #e07a5f;">
+          <h4 style="font-weight: 700; margin-bottom: 0.5rem; font-size: 0.95rem; color: var(--text-primary);">CORD Pro Features Include:</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.7; color: var(--text-secondary);">
+            <li>✓ Unlimited synced documents (Slack, Notion, Jira, Google Drive)</li>
+            <li>✓ Advanced Proactive Root-Cause Analysis</li>
+            <li>✓ Live Webhook triggers & Custom Multi-hop diagnostic loops</li>
+            <li>✓ Priority customer billing portal support</li>
+          </ul>
+        </div>
+        
+        <button id="checkout-upgrade-btn" onclick="triggerCheckout()" class="btn btn-primary btn-block" style="padding: 0.8rem; font-size: 1rem; font-weight: 700; background: #e07a5f; border-color: #e07a5f;">
+          Upgrade to Pro ($29/mo)
+        </button>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem;">
+          Secure credit card billing powered by Stripe. Cancel anytime.
+        </p>
       </div>
     </div>
   </div>

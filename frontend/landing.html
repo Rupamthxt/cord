@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORD // AI Incident Reasoning Engine</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/landing.css">
+</head>
+<body>
+
+  <!-- Editorial Navigation Header -->
+  <header class="navbar">
+    <div class="nav-logo">
+      <span class="logo-symbol">&#10059;</span>
+      <span class="logo-text">CORD</span>
+    </div>
+    <nav class="nav-links">
+      <a href="/dashboard" class="btn-nav">Launch Console</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section (Editorial Title & Terracotta Accent) -->
+  <section class="hero">
+    <div class="tag-label">[ REASONING MODEL V1.0 ]</div>
+    <h1 class="hero-title animate-fade-in">
+      Incident reasoning, built for transparency.
+    </h1>
+    <p class="hero-subtitle">
+      CORD combines structured documentation, chat history, and runtime exceptions into a clean temporal graph, letting teams identify root causes in seconds.
+    </p>
+    <div class="hero-actions">
+      <a href="/dashboard" class="btn btn-primary">Start Workspace</a>
+    </div>
+  </section>
+
+  <!-- Compatible Connectors row -->
+  <section class="connectors-row-section">
+    <div class="connectors-label">COMPATIBLE DATA SOURCES</div>
+    <div class="connectors-grid">
+      <div class="connector-item">Notion Core</div>
+      <div class="connector-item">Slack Integration</div>
+      <div class="connector-item">Jira Cloud</div>
+      <div class="connector-item">Sentry Webhooks</div>
+      <div class="connector-item">GitHub Releases</div>
+      <div class="connector-item">Google Drive</div>
+    </div>
+  </section>
+
+  <!-- Telemetry Sandbox Console -->
+  <section class="sandbox-section">
+    <div class="section-title-wrapper">
+      <span class="mono-step">SIMULATION LAB</span>
+      <h2>Run diagnostic scenarios</h2>
+      <p>Observe the CORD pipeline parse telemetry signals and output structured root causes.</p>
+    </div>
+
+    <div class="sandbox-console">
+      <div class="sandbox-tabs">
+        <button class="sandbox-tab-btn active" onclick="switchSimulation('db')">Database Saturation</button>
+        <button class="sandbox-tab-btn" onclick="switchSimulation('stripe')">Stripe Webhook Timeout</button>
+        <button class="sandbox-tab-btn" onclick="switchSimulation('leak')">Auth Memory Leak</button>
+      </div>
+
+      <div class="sandbox-viewport">
+        <!-- Telemetry Logs Panel -->
+        <div class="viewport-logs-col">
+          <div class="col-header">INGESTED SIGNAL TRAIL</div>
+          <div class="log-lines-container" id="sim-logs">
+            <!-- Simulated Logs -->
+          </div>
+        </div>
+
+        <!-- AI Output Panel -->
+        <div class="viewport-output-col">
+          <div class="col-header">CORD SYNTHESIZED REPORT</div>
+          <div class="output-content-box" id="sim-output">
+            <!-- Simulated Output -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Capabilities Comparison -->
+  <section class="comparison-section">
+    <div class="section-title-wrapper">
+      <span class="mono-step">BENCHMARKS</span>
+      <h2>Operational performance delta</h2>
+    </div>
+
+    <div class="comparison-table">
+      <div class="table-row table-header-row">
+        <div>Capability</div>
+        <div>Standard Triage</div>
+        <div>CORD Environment</div>
+      </div>
+      <div class="table-row">
+        <div class="feature-name">Triage Speed</div>
+        <div class="bad-val">Hours of log analysis</div>
+        <div class="good-val">Under 15 seconds</div>
+      </div>
+      <div class="table-row">
+        <div class="feature-name">Entity Correlation</div>
+        <div class="bad-val">Ad-hoc regex keyword checks</div>
+        <div class="good-val">Temporal Graph mapping</div>
+      </div>
+      <div class="table-row">
+        <div class="feature-name">Escalation Workflows</div>
+        <div class="bad-val">Manual developer paging</div>
+        <div class="good-val">Programmatic SLA rules</div>
+      </div>
+      <div class="table-row">
+        <div class="feature-name">Organization Privacy</div>
+        <div class="bad-val">Shared global API keys</div>
+        <div class="good-val">Cryptographic scopes</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Capabilities Grid -->
+  <section class="features-section">
+    <div class="section-title-wrapper">
+      <span class="mono-step">SYSTEM ARCHITECTURE</span>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-tag">01 // READ</div>
+        <h3>Incremental Indexing</h3>
+        <p>Crawler connector sweeps Slack history and Notion page structures directly into private sqlite data graphs.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-tag">02 // LINK</div>
+        <h3>Entity Resolution</h3>
+        <p>Links platform alerts by checking overlaps in keyword footprints, time window closeness, and vector match weights.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-tag">03 // SOLVE</div>
+        <h3>Supervised Triage</h3>
+        <p>Tracks open tickets, logs transitions in state timelines, and automatically notifies engineering leads on delay.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Accordion -->
+  <section class="faq-section">
+    <div class="section-title-wrapper">
+      <span class="mono-step">REASONING SECURITY</span>
+      <h2>Key Architectural Concepts</h2>
+    </div>
+
+    <div class="faq-accordion-list">
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          Is data processed by external AI endpoints?
+          <span class="faq-icon">&#43;</span>
+        </button>
+        <div class="faq-answer">
+          No. CORD structures and reasoning are executed locally. By default, CORD makes async requests to local vector libraries (Qdrant) and inference managers (Ollama running <code>llama3.2</code>) inside your secure subnet boundaries.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          How does the platform isolate tenant data?
+          <span class="faq-icon">&#43;</span>
+        </button>
+        <div class="faq-answer">
+          Every document chunk, webhook alert, and transaction detail is bound to a specific workspace ID. The retrieval ranker validates scope parameters on every request to prevent data leakage.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          What are the credential storage rules?
+          <span class="faq-icon">&#43;</span>
+        </button>
+        <div class="faq-answer">
+          Integration connection secrets are registered in CORD's cryptographically isolated Credential Vault, securely decoupled from the application logic layers.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Box -->
+  <section class="cta-section">
+    <div class="cta-card">
+      <h2>Build a transparent operational core.</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 480px; font-size: 0.95rem; line-height: 1.6;">
+        Set up your isolated workspace, integrate Slack/Notion webhooks, and start diagnosing incidents immediately.
+      </p>
+      <a href="/dashboard" class="btn btn-primary">Start Workspace &rarr;</a>
+    </div>
+  </section>
+
+  <!-- Minimal Editorial Footer -->
+  <footer class="footer">
+    <div>&copy; 2026 CORD. Built for transparency.</div>
+    <div>Saas Intelligence Core</div>
+  </footer>
+
+  <!-- Simulation Control Script -->
+  <script>
+    const simulations = {
+      db: {
+        logs: [
+          { time: '10:14:22', type: 'sentry', text: 'Error: Database connection pool limit (100) reached in ServerA' },
+          { time: '10:14:45', type: 'slack', text: '[#ops-alerts] Latency spike reported: Gateway connection timeouts rising' },
+          { time: '10:15:02', type: 'github', text: 'Deployment completed: Release v2.5.0 (Updated DB pool configs)' }
+        ],
+        output: `<strong>Root Cause</strong>: Deployment Release v2.5.0 adjusted pool limits without increasing server connection headroom, causing connection exhaustion.<br><br><strong>Remediation</strong>: Trigger rollout rollback to Release v2.4.9 immediately or scale DB pool limit capacity via CLI.`
+      },
+      stripe: {
+        logs: [
+          { time: '14:22:10', type: 'sentry', text: 'Warning: Stripe API request failed with HTTP 504 Gateway Timeout' },
+          { time: '14:22:30', type: 'slack', text: '[#billing] DevOps: Checkouts failing. Customer reports spinning wheel' },
+          { time: '14:23:05', type: 'jira', text: 'Ticket Created: COR-109 stripe signature validation fails intermittently' }
+        ],
+        output: `<strong>Root Cause</strong>: Saturated outbound billing gateway timeout thresholds caused upstream webhook timeouts and client checkout blocks.<br><br><strong>Remediation</strong>: Increase Stripe request timeout threshold parameter from 5s to 15s in routing gateway config.`
+      },
+      leak: {
+        logs: [
+          { time: '04:10:02', type: 'sentry', text: 'Warning: Process heap memory exceeded 92% (1.84GB) in AuthService' },
+          { time: '04:11:15', type: 'slack', text: '[#ops] Alert: AuthService container restarted due to OOM crash' },
+          { time: '04:12:00', type: 'github', text: 'Commit completed: AuthToken session cache refactoring' }
+        ],
+        output: `<strong>Root Cause</strong>: Missing global cache eviction policy in session token refactoring commit leaked heap references on each user authentication loop.<br><br><strong>Remediation</strong>: Deploy hotfix replacing the raw session Map cache with a size-limited LRU Cache configuration.`
+      }
+    };
+
+    function switchSimulation(key) {
+      // Toggle button active state
+      document.querySelectorAll('.sandbox-tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const sim = simulations[key];
+      
+      // Render simulated logs
+      const logsContainer = document.getElementById('sim-logs');
+      logsContainer.innerHTML = '';
+      sim.logs.forEach(l => {
+        const row = document.createElement('div');
+        row.className = 'log-line';
+        row.innerHTML = `
+          <span class="log-time">[${l.time}]</span>
+          <span class="log-badge ${l.type}">${l.type.toUpperCase()}</span>
+          <span class="log-text">${escapeHtml(l.text)}</span>
+        `;
+        logsContainer.appendChild(row);
+      });
+
+      // Render simulated output
+      document.getElementById('sim-output').innerHTML = sim.output;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    function toggleFaq(btn) {
+      const faqItem = btn.parentElement;
+      const answer = faqItem.querySelector('.faq-answer');
+      const icon = faqItem.querySelector('.faq-icon');
+      
+      const isOpen = faqItem.classList.contains('active');
+      
+      // Close all first
+      document.querySelectorAll('.faq-item').forEach(item => {
+        item.classList.remove('active');
+        item.querySelector('.faq-answer').style.maxHeight = null;
+        item.querySelector('.faq-icon').innerHTML = '&#43;';
+      });
+
+      if (!isOpen) {
+        faqItem.classList.add('active');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+        icon.innerHTML = '&#8722;';
+      }
+    }
+
+    // Load default DB simulation
+    document.addEventListener('DOMContentLoaded', () => {
+      switchSimulation('db');
+    });
+  </script>
+</body>
+</html>

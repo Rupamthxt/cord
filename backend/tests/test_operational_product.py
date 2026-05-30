@@ -149,6 +149,16 @@ class TestOperationalProduct(unittest.TestCase):
             self.assertIn("evidence", data)
             self.assertIn("diagnostics", data)
 
+    def test_web_server_routes(self):
+        """Verifies that the static index/landing and dashboard workspace pages load successfully."""
+        res_landing = self.client.get("/")
+        self.assertEqual(res_landing.status_code, 200)
+        self.assertIn("Incident reasoning", res_landing.text)
+
+        res_dashboard = self.client.get("/dashboard")
+        self.assertEqual(res_dashboard.status_code, 200)
+        self.assertIn("CORD // Operational Intelligence Dashboard", res_dashboard.text)
+
 
 if __name__ == "__main__":
     unittest.main()

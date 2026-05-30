@@ -58,6 +58,9 @@ app.include_router(actions_router)
 from backend.api.oauth import router as oauth_router
 app.include_router(oauth_router)
 
+from backend.api.billing import router as billing_router
+app.include_router(billing_router)
+
 # Mount static files from root-level frontend directory
 
 from fastapi.staticfiles import StaticFiles
@@ -611,6 +614,15 @@ async def sync_jira_tickets(body: JiraSyncRequest):
     Synchronizes tickets from the production-grade Jira connector.
     """
     try:
+        from backend.core.services.db_manager import DBManager
+        db = DBManager()
+        workspace_id = body.workspace_id or "default_workspace"
+        workspace = db.get_workspace(workspace_id)
+        if workspace and workspace.get("plan_level", "free") == "free":
+            doc_count = db.get_workspace_document_count(workspace_id)
+            if doc_count >= 50:
+                raise HTTPException(status_code=403, detail="WORKSPACE_QUOTA_EXCEEDED")
+
         from backend.connectors.jira.jira_connector import JiraConnector
         from backend.connectors.ingestion.chunker import chunk_text
         from backend.core.models.store_memory import store_chunks
@@ -623,6 +635,8 @@ async def sync_jira_tickets(body: JiraSyncRequest):
             store_chunks(chunks, metadata=doc)
             
         return {"status": "success", "synced_tickets_count": len(docs)}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Jira sync API failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Jira Sync Error: {str(e)}")
@@ -649,13 +663,34 @@ async def seed_demo_endpoint():
 
 
 # ----------------------------------------------------
-# UI Dashboard Web Server Route
+# UI Dashboard Web Server Routes
 # ----------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
+@app.get("/", response_class=HTMLResponse, tags=["Landing Page"])
+async def get_landing_page():
+    """
+    Delivers the minimal, premium marketing landing page for the CORD startup.
+    """
+    import os
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    frontend_dir = os.path.join(project_root, "frontend")
+    landing_path = os.path.join(frontend_dir, "landing.html")
+    try:
+        with open(landing_path, "r") as f:
+            html_content = f.read()
+        return html_content
+    except Exception as ex:
+        logger.error(f"Landing page landing.html loading failed: {ex}")
+        return HTMLResponse(
+            content=f"<h1>Landing page not found</h1><p>Please verify it exists at {landing_path}. Details: {ex}</p>",
+            status_code=404
+        )
+
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
 async def get_dashboard():
     """
-    Delivers the single-page glassmorphic HTML/JS dashboard dashboard workspace.
+    Delivers the single-page glassmorphic HTML/JS dashboard workspace.
     """
     import os
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

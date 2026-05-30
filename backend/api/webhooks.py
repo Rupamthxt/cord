@@ -293,3 +293,78 @@ async def handle_sentry_webhook(request: Request):
     )
 
     return {"status": "ok"}
+
+
+@router.post("/stripe")
+async def handle_stripe_webhook(request: Request):
+    """
+    Handles Stripe subscription and invoice events.
+    Supports mock/local bypass for signature verification if secret key is mock or dummy.
+    """
+    import os
+    payload_bytes = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+    
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
+    
+    is_mock = not stripe_key or "dummy" in stripe_key or "mock" in stripe_key
+    
+    event = None
+    if is_mock or not sig_header or not webhook_secret:
+        try:
+            event = json.loads(payload_bytes.decode("utf-8"))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    else:
+        try:
+            import stripe
+            stripe.api_key = stripe_key
+            event = stripe.Webhook.construct_event(
+                payload_bytes, sig_header, webhook_secret
+            )
+        except Exception as e:
+            logger.error(f"Stripe signature verification failed: {e}")
+            raise HTTPException(status_code=400, detail="Invalid signature")
+            
+    event_type = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
+    
+    logger.info(f"Received Stripe webhook event: {event_type}")
+    
+    if event_type in ["customer.subscription.created", "customer.subscription.updated"]:
+        metadata = data_object.get("metadata", {})
+        workspace_id = metadata.get("workspace_id")
+        
+        if not workspace_id:
+            workspace_id = data_object.get("client_reference_id")
+            
+        status = data_object.get("status")
+        sub_id = data_object.get("id")
+        customer_id = data_object.get("customer")
+        
+        if workspace_id:
+            plan_level = "pro" if status in ["active", "trialing"] else "free"
+            db_manager.update_workspace_subscription(
+                workspace_id=workspace_id,
+                stripe_customer_id=customer_id,
+                stripe_subscription_id=sub_id,
+                subscription_status=status,
+                plan_level=plan_level
+            )
+            logger.info(f"Updated workspace {workspace_id} subscription status to {status}, plan to {plan_level}")
+            
+    elif event_type == "customer.subscription.deleted":
+        sub_id = data_object.get("id")
+        with db_manager.get_connection() as conn:
+            row = conn.execute("SELECT workspace_id FROM workspaces WHERE stripe_subscription_id = ?", (sub_id,)).fetchone()
+        if row:
+            workspace_id = row["workspace_id"]
+            db_manager.update_workspace_subscription(
+                workspace_id=workspace_id,
+                subscription_status="canceled",
+                plan_level="free"
+            )
+            logger.info(f"Canceled subscription for workspace {workspace_id}")
+            
+    return {"status": "ok"}

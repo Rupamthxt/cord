@@ -77,6 +77,7 @@ async function checkAuth() {
     await fetchWorkspaces();
     populateWorkspaceSelect();
     loadTabContentData();
+    checkCheckoutSuccess();
   } else {
     authScreen.style.display = 'flex';
     mainDashboard.style.display = 'none';
@@ -195,6 +196,7 @@ function populateWorkspaceSelect() {
   workspaceSelect.innerHTML = '';
   if (workspaces.length === 0) {
     workspaceSelect.innerHTML = `<option value="default_workspace">Default Workspace</option>`;
+    updateWorkspacePlanBadge();
     return;
   }
   workspaces.forEach(ws => {
@@ -204,6 +206,7 @@ function populateWorkspaceSelect() {
     opt.selected = ws.workspace_id === activeWorkspaceId;
     workspaceSelect.appendChild(opt);
   });
+  updateWorkspacePlanBadge();
 }
 
 // Switch workspace
@@ -211,7 +214,26 @@ function switchWorkspace(workspaceId) {
   activeWorkspaceId = workspaceId;
   localStorage.setItem('cord_active_workspace', activeWorkspaceId);
   logConsole(`Switched active workspace scope to: ${activeWorkspaceId}`, 'info');
+  updateWorkspacePlanBadge();
   loadTabContentData();
+}
+
+// Update the plan badge next to the workspace selector
+function updateWorkspacePlanBadge() {
+  const badge = document.getElementById('workspace-plan-badge');
+  if (!badge) return;
+  
+  const currentWS = workspaces.find(w => w.workspace_id === activeWorkspaceId);
+  if (currentWS) {
+    const plan = currentWS.plan_level || 'free';
+    badge.textContent = plan.toUpperCase();
+    badge.className = `plan-badge ${plan}`;
+    badge.title = plan === 'free' ? 'Free Plan (Click to Upgrade)' : 'Pro Plan Active (Click to Manage)';
+  } else {
+    badge.textContent = 'FREE';
+    badge.className = 'plan-badge free';
+    badge.title = 'Free Plan (Click to Upgrade)';
+  }
 }
 
 // Create Workspace Modal
@@ -767,7 +789,12 @@ async function syncActiveWorkspace() {
     const response = await responsePromise;
     const data = await response.json();
     
-    if (!response.ok) throw new Error(data.detail || 'Workspace sync failed.');
+    if (!response.ok) {
+      if (response.status === 403 && data.detail === 'WORKSPACE_QUOTA_EXCEEDED') {
+        openUpgradeModal();
+      }
+      throw new Error(data.detail || 'Workspace sync failed.');
+    }
 
     // Stage 5: Ingesting into Qdrant & PG Graph (75% -> 90%)
     targetProgress = 90;
@@ -1718,5 +1745,94 @@ Workspace: ${activeWorkspaceId}
 Use the search bar or timeline explorers to trace further causal paths.`;
   } catch (err) {
     modalContent.textContent = `Error loading details: ${err.message}`;
+  }
+}
+
+// --- Billing and Checkout Helpers ---
+
+function closeUpgradeModal() {
+  document.getElementById('upgrade-pro-modal').classList.remove('active');
+}
+
+function openUpgradeModal() {
+  document.getElementById('upgrade-pro-modal').classList.add('active');
+}
+
+async function triggerCheckout() {
+  const checkoutBtn = document.getElementById('checkout-upgrade-btn');
+  const originalText = checkoutBtn.textContent;
+  checkoutBtn.disabled = true;
+  checkoutBtn.textContent = 'Redirecting to checkout...';
+  
+  try {
+    const response = await fetch('/billing/checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        workspace_id: activeWorkspaceId,
+        success_url: window.location.origin + '/dashboard?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url: window.location.origin + '/dashboard'
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned.');
+      }
+    } else {
+      const errData = await response.json();
+      throw new Error(errData.detail || 'Checkout failed.');
+    }
+  } catch (err) {
+    alert('Billing error: ' + err.message);
+    checkoutBtn.disabled = false;
+    checkoutBtn.textContent = originalText;
+  }
+}
+
+async function handleBillingPortal() {
+  const currentWS = workspaces.find(w => w.workspace_id === activeWorkspaceId);
+  const plan = (currentWS && currentWS.plan_level) || 'free';
+  
+  if (plan === 'free') {
+    openUpgradeModal();
+  } else {
+    try {
+      const response = await fetch('/billing/portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          workspace_id: activeWorkspaceId,
+          return_url: window.location.origin + '/dashboard'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to open billing portal:', err);
+    }
+  }
+}
+
+function checkCheckoutSuccess() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('session_id')) {
+    logConsole('Stripe payment verified! Upgrading workspace to CORD Pro...', 'success');
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
   }
 }
